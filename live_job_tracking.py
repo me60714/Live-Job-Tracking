@@ -5,9 +5,10 @@ from typing import Dict, List
 from urllib.parse import urljoin
 
 # Constants
-JIRA_URL = "https://paragonsystemstesting.atlassian.net"  # Ensure this is correct
-JIRA_USERNAME = "your-email@example.com"  # Replace with your actual email
-JIRA_API_TOKEN = "your-api-token"  # Replace with your actual API token
+JIRA_URL = "URL"
+JIRA_USERNAME = "email"
+JIRA_API_TOKEN = "API-TOKEN"
+
 
 def fetch_issues(jql_query: str) -> List[Dict]:
     """Fetch issues from Jira API."""
@@ -17,8 +18,6 @@ def fetch_issues(jql_query: str) -> List[Dict]:
     api_endpoint = urljoin(JIRA_URL, "/rest/api/2/search")
     headers = {"Accept": "application/json"}
     params = {"jql": jql_query, "maxResults": 1000}
-    
-    print(f"Attempting to access: {api_endpoint}")  # Debugging line
     
     try:
         response = requests.get(api_endpoint, headers=headers, params=params, auth=(JIRA_USERNAME, JIRA_API_TOKEN))
@@ -55,12 +54,22 @@ def plot_issues_over_time(df: pd.DataFrame) -> None:
     plt.show()
 
 def main():
-    jql_query = 'project = YourProjectKey ORDER BY created DESC'
+
+    project_key = "MTEST" 
+    jql_query = f'project = {project_key} ORDER BY created DESC'
+    
+    print(f"Using JQL query: {jql_query}")
     
     try:
         issues = fetch_issues(jql_query)
+        if not issues:
+            print("No issues found. Check your project key and JQL query.")
+            return
         df = process_issues(issues)
         plot_issues_over_time(df)
+    except requests.exceptions.HTTPError as e:
+        print(f"HTTP Error: {e}")
+        print(f"Response content: {e.response.content}")
     except ValueError as e:
         print(f"Configuration error: {e}")
     except ConnectionError as e:
