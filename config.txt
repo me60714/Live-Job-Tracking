@@ -1,3 +1,0 @@
-JIRA_URL = "https:/paragonsystemstesting.atlassian.net"
-JIRA_USERNAME = "waynek@paragonsystems.ca"
-JIRA_API_TOKEN = "ATATT3xFfGF07P-4JdjHa49ReJeS5jNYEn5tXoswi8MGFYZy29p161Td0511HrS-xTPLPbhZz05VIhYTbtH66srHdDDpktmD5t1BVrmZr8cmlk3JH8d305YZnPzz7QPKIw8csqQCo3I9o0G9ftN5ERHaEFqxTekhyn8zeyMMKwu_L-AzvmtZmlo=3E8CC873"
