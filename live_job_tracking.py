@@ -1,71 +1,57 @@
 import requests
 import pandas as pd
-from datetime import datetime
 import matplotlib.pyplot as plt
-from config import JIRA_URL, JIRA_USERNAME, JIRA_API_TOKEN
+from typing import Dict, List
 
-class JiraDataFetcher:
-    def __init__(self):
-        self.base_url = JIRA_URL
-        self.auth = (JIRA_USERNAME, JIRA_API_TOKEN)
+# Constants
+JIRA_URL = "jiraURL"
+JIRA_USERNAME = "email"
+JIRA_API_TOKEN = "api-token"
 
-    def fetch_issues(self, jql_query):
-        api_endpoint = f"{self.base_url}/rest/api/2/search"
-        headers = {"Accept": "application/json"}
-        params = {
-            "jql": jql_query,
-            "maxResults": 1000  # Adjust as needed
+def fetch_issues(jql_query: str) -> List[Dict]:
+    """Fetch issues from Jira API."""
+    api_endpoint = f"{JIRA_URL}/rest/api/2/search"
+    headers = {"Accept": "application/json"}
+    params = {"jql": jql_query, "maxResults": 1000}
+    
+    response = requests.get(api_endpoint, headers=headers, params=params, auth=(JIRA_USERNAME, JIRA_API_TOKEN))
+    response.raise_for_status()
+    return response.json()['issues']
+
+def process_issues(issues: List[Dict]) -> pd.DataFrame:
+    """Process issues into a pandas DataFrame."""
+    return pd.DataFrame([
+        {
+            'key': issue['key'],
+            'status': issue['fields']['status']['name'],
+            'created_date': pd.to_datetime(issue['fields']['created'])
         }
+        for issue in issues
+    ])
 
-        response = requests.get(api_endpoint, headers=headers, params=params, auth=self.auth)
-        response.raise_for_status()
-        return response.json()['issues']
-
-class DataProcessor:
-    @staticmethod
-    def process_issues(issues):
-        data = []
-        for issue in issues:
-            data.append({
-                'key': issue['key'],
-                'status': issue['fields']['status']['name'],
-                'created_date': issue['fields']['created'],
-                # Add more fields as needed
-            })
-        return pd.DataFrame(data)
-
-    @staticmethod
-    def clean_data(df):
-        df['created_date'] = pd.to_datetime(df['created_date'])
-        # Add more cleaning steps as needed
-        return df
-
-class Visualizer:
-    @staticmethod
-    def plot_issues_over_time(df):
-        df_grouped = df.groupby('created_date').size().cumsum()
-        plt.figure(figsize=(12, 6))
-        plt.plot(df_grouped.index, df_grouped.values)
-        plt.title('Cumulative Issues Over Time')
-        plt.xlabel('Date')
-        plt.ylabel('Number of Issues')
-        plt.show()
+def plot_issues_over_time(df: pd.DataFrame) -> None:
+    """Plot cumulative issues over time."""
+    df_grouped = df.groupby('created_date').size().cumsum()
+    
+    plt.figure(figsize=(12, 6))
+    plt.plot(df_grouped.index, df_grouped.values)
+    plt.title('Cumulative Issues Over Time')
+    plt.xlabel('Date')
+    plt.ylabel('Number of Issues')
+    plt.tight_layout()
+    plt.show()
 
 def main():
-    fetcher = JiraDataFetcher()
-    processor = DataProcessor()
-    visualizer = Visualizer()
-
-    # Fetch data
     jql_query = 'project = YourProjectKey ORDER BY created DESC'
-    issues = fetcher.fetch_issues(jql_query)
-
-    # Process and clean data
-    df = processor.process_issues(issues)
-    df_cleaned = processor.clean_data(df)
-
-    # Visualize data
-    visualizer.plot_issues_over_time(df_cleaned)
+    
+    try:
+        issues = fetch_issues(jql_query)
+        df = process_issues(issues)
+        plot_issues_over_time(df)
+    except requests.RequestException as e:
+        print(f"Error fetching data from Jira: {e}")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
 
 if __name__ == "__main__":
     main()
