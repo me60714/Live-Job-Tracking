@@ -39,12 +39,7 @@ class JiraDataProcessor:
         try:
             response = requests.get(api_endpoint, headers=headers, params=params, auth=(self.JIRA_USERNAME, self.JIRA_API_TOKEN))
             response.raise_for_status()
-            issues = response.json()['issues']
-            
-            # Debug: Write specific issue to file
-            self.debug_print_issue(issues, "MTEST-5160")
-            
-            return issues
+            return response.json()['issues']
         except requests.exceptions.RequestException as e:
             raise RuntimeError(f"Error fetching data from Jira: {e}")
 
