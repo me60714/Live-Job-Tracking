@@ -1,0 +1,27 @@
+Goal: to build an automatic live job tracking line graph.
+
+Background: 
+Currently we use the Jira free version to help us track all the jobs.
+
+Process of a job:
+    1. Sample Prepare:
+        a. Receive a  job (or a sample, a task)
+        b. Create job number
+        c. Taking photos
+        d. Measure wall thickness
+        e. Specimens cutting
+        f. Specimens machining
+    2.Testing
+
+What it should look like:
+    1. A line graph
+    2. Different colors for different stages
+    3. Be able to select different time range
+    4. Be able to select different stages
+    5. Be able to filter out the issues that are not in the selected stages
+    6. Be able to show the total number of issues in each stage
+    7. Automatically update every 3 minutes
+    8. It should present in a popup window, and people can click on it to see the details, filter the data and see those visualization charts.
+
+
+for each TOP LEVEL ISSUE in the JIRA, we call it a "job"
