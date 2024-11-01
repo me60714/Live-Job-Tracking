@@ -121,13 +121,13 @@ class JiraDataProcessor:
         # Return only the last 7 days of data
         return running_avg.tail(7)
 
-    def get_data(self, project_key: str, start_date: str = None, end_date: str = None, stages: List[str] = None) -> Dict:
+    def get_data(self, project_key: str, start_date: str = None, end_date: str = None, stages: List[str] = None, view_type: str = 'Daily Count') -> Dict:
         jql_query = f'project = {project_key} ORDER BY created DESC'
         issues = self.fetch_issues(jql_query)
         df = self.process_issues(issues)
         filtered_df = self.filter_issues(df, start_date, end_date, stages)
         
-        aggregated_data = self.aggregate_data(filtered_df)
+        aggregated_data = self.aggregate_data(filtered_df, view_type)
         
         # Ensure we have data for all days in the selected range
         date_range = pd.date_range(start=start_date, end=end_date)
@@ -140,8 +140,12 @@ class JiraDataProcessor:
             'aggregated_data': aggregated_data
         }
 
-    def aggregate_data(self, df: pd.DataFrame) -> pd.DataFrame:
+    def aggregate_data(self, df: pd.DataFrame, view_type: str = 'Daily Count') -> pd.DataFrame:
+        """Aggregate data based on view type."""
         df['created_date'] = pd.to_datetime(df['created_date'])
         daily_counts = df.groupby([df['created_date'].dt.date, 'stage']).size().unstack(fill_value=0)
-        cumulative = daily_counts.cumsum()
-        return cumulative.reset_index().rename(columns={'created_date': 'date'}).set_index('date')
+        
+        if view_type == 'Cumulative':
+            daily_counts = daily_counts.cumsum()
+        
+        return daily_counts.reset_index().rename(columns={'created_date': 'date'}).set_index('date')
