@@ -9,7 +9,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.data_processor = data_processor
         self.init_ui()
-        self.update_data()  # Initial data update
+        self.update_data()
 
     def init_ui(self):
         self.setWindowTitle('Live Job Tracking')
@@ -78,14 +78,15 @@ class MainWindow(QMainWindow):
     def update_data(self):
         stage = self.stage_filter.currentText()
         stages = [stage] if stage != 'All' else None
+        view_type = self.view_type.currentText()
 
         start_date = self.start_date.date().toString("yyyy-MM-dd")
         end_date = self.end_date.date().toString("yyyy-MM-dd")
 
-        data = self.data_processor.get_data("MTEST", start_date, end_date, stages)
-        self.update_plot(data)
+        data = self.data_processor.get_data("MTEST", start_date, end_date, stages, view_type)
+        self.update_plot(data, view_type)
 
-    def update_plot(self, data):
+    def update_plot(self, data, view_type):
         self.plot_widget.clear()
         df = data['aggregated_data']
         
@@ -97,7 +98,8 @@ class MainWindow(QMainWindow):
             color = colors[i % len(colors)]
             self.plot_widget.plot(x, df[stage].values, name=stage, pen=color)
         
-        self.plot_widget.setLabel('left', 'Total Number of Jobs')
+        y_label = 'Total Number of Jobs' if view_type == 'Cumulative' else 'Daily Number of Jobs'
+        self.plot_widget.setLabel('left', y_label)
         self.plot_widget.setLabel('bottom', 'Date')
         
         # Set x-axis tick format to display dates with weekday abbreviations
