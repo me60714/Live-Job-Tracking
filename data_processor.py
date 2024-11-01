@@ -18,31 +18,33 @@ class JiraDataProcessor:
     def fetch_issues(self, jql_query: str) -> List[Dict]:
         """Fetch issues from Jira API."""
         if not self.JIRA_URL:
-            raise ValueError("JIRA_URL is not set. Please check your configuration.")
+            raise ValueError("JIRA_URL is not set")
         
         api_endpoint = urljoin(self.JIRA_URL, "/rest/api/2/search")
         headers = {"Accept": "application/json"}
         
-        # Modify the JQL query to only fetch top-level tasks
-        if "ORDER BY" in jql_query:
-            jql_query = jql_query.split("ORDER BY")[0].strip()
-        
-        jql_query += " AND issuetype = Task AND parent IS EMPTY ORDER BY created DESC"
+        # Print the final JQL query for debugging
+        print(f"JQL Query: {jql_query}")
         
         params = {"jql": jql_query, "maxResults": 300}
         
         try:
-            response = requests.get(api_endpoint, headers=headers, params=params, auth=(self.JIRA_USERNAME, self.JIRA_API_TOKEN))
+            response = requests.get(api_endpoint, headers=headers, params=params, 
+                                  auth=(self.JIRA_USERNAME, self.JIRA_API_TOKEN))
             response.raise_for_status()
-            return response.json()['issues']
-        except requests.exceptions.RequestException as e:
-            raise RuntimeError(f"Error fetching data from Jira: {e}")
+            issues = response.json()['issues']
+            print(f"Number of issues fetched: {len(issues)}")
+            return issues
+        except Exception as e:
+            print(f"Error fetching data: {e}")
+            return []
 
     def process_issues(self, issues: List[Dict]) -> pd.DataFrame:
         """Process issues into a DataFrame."""
         processed_data = []
         seen_jobs = set()
         
+        print("\nProcessing issues:")
         for issue in issues:
             job = issue['fields']['summary']
             if job in seen_jobs:
@@ -56,6 +58,7 @@ class JiraDataProcessor:
                 'stage': self.determine_stage(issue['fields']['status']['name'])
             }
             processed_data.append(data)
+            print(f"Job: {job}, Status: {data['status']}, Created: {data['created_date']}, Stage: {data['stage']}")
         
         return pd.DataFrame(processed_data)
 
@@ -83,18 +86,32 @@ class JiraDataProcessor:
         else:
             return 'Other'
 
-    @staticmethod
-    def filter_issues(df: pd.DataFrame, start_date: str = None, end_date: str = None, stages: List[str] = None) -> pd.DataFrame:
-        filtered_df = df.copy()
+    def filter_issues(self, df: pd.DataFrame, start_date: str = None, end_date: str = None, stages: List[str] = None) -> pd.DataFrame:
+        """Filter issues based on date range and stages."""
+        if df.empty:
+            return df
+            
+        # Convert dates to datetime
+        df['created_date'] = pd.to_datetime(df['created_date'])
+        
         if start_date:
-            start_date = pd.to_datetime(start_date)
-            filtered_df = filtered_df[filtered_df['created_date'] >= start_date]
+            start = pd.to_datetime(start_date)
+            df = df[df['created_date'].dt.date >= start.date()]
+        
         if end_date:
-            end_date = pd.to_datetime(end_date)
-            filtered_df = filtered_df[filtered_df['created_date'] <= end_date]
+            end = pd.to_datetime(end_date) + pd.Timedelta(days=1)
+            df = df[df['created_date'].dt.date < end.date()]
+        
         if stages and 'All' not in stages:
-            filtered_df = filtered_df[filtered_df['stage'].isin(stages)]
-        return filtered_df
+            df = df[df['stage'].isin(stages)]
+        
+        print(f"\nFiltering data:")
+        print(f"Start date: {start_date}")
+        print(f"End date: {end_date}")
+        print(f"Number of issues after filtering: {len(df)}")
+        print(f"Date range of data: {df['created_date'].min() if not df.empty else 'No data'} to {df['created_date'].max() if not df.empty else 'No data'}")
+        
+        return df
 
     def get_total_issues(self, df: pd.DataFrame) -> Dict[str, int]:
         return df['stage'].value_counts().to_dict()
@@ -124,16 +141,20 @@ class JiraDataProcessor:
         return running_avg.tail(7)
 
     def get_data(self, project_key: str, start_date: str = None, end_date: str = None, stages: List[str] = None, view_type: str = 'Daily Count') -> Dict:
+        print(f"\nFetching data with parameters:")
+        print(f"Project: {project_key}")
+        print(f"Date range: {start_date} to {end_date}")
+        print(f"Stages: {stages}")
+        print(f"View type: {view_type}")
+        
         jql_query = f'project = {project_key} ORDER BY created DESC'
         issues = self.fetch_issues(jql_query)
         df = self.process_issues(issues)
         filtered_df = self.filter_issues(df, start_date, end_date, stages)
         
-        aggregated_data = self.aggregate_data(filtered_df, view_type)
-        
-        # Ensure we have data for all days in the selected range
+        # Create complete date range
         date_range = pd.date_range(start=start_date, end=end_date)
-        aggregated_data = aggregated_data.reindex(date_range, fill_value=0)
+        aggregated_data = self.aggregate_data(filtered_df, view_type, date_range)
         
         return {
             'df': filtered_df,
@@ -144,16 +165,35 @@ class JiraDataProcessor:
 
     def aggregate_data(self, df: pd.DataFrame, view_type: str = 'Daily Count', date_range: pd.DatetimeIndex = None) -> pd.DataFrame:
         """Aggregate data based on view type."""
-        df['created_date'] = pd.to_datetime(df['created_date'])
+        print("\nAggregating data:")
+        print(f"Input DataFrame shape: {df.shape}")
         
-        daily_counts = df.groupby([df['created_date'].dt.date, 'stage']).size().unstack(fill_value=0)
+        # Define fixed order of stages
+        STAGE_ORDER = ['Sample Preparation', 'Testing', 'Other']
         
+        if df.empty and date_range is not None:
+            # Create empty DataFrame with ordered stages
+            dates = [d.date() for d in date_range]
+            daily_counts = pd.DataFrame(0, index=dates, columns=STAGE_ORDER)
+        else:
+            # Group by date and stage, count jobs
+            daily_counts = df.groupby([df['created_date'].dt.date, 'stage']).size().unstack(fill_value=0)
+            
+            # Ensure all stages are present and in correct order
+            for stage in STAGE_ORDER:
+                if stage not in daily_counts.columns:
+                    daily_counts[stage] = 0
+            
+            # Reorder columns
+            daily_counts = daily_counts[STAGE_ORDER]
+        
+        # Ensure all dates in range are included
         if date_range is not None:
             dates = [d.date() for d in date_range]
             daily_counts = daily_counts.reindex(dates, fill_value=0)
         
         if view_type == 'Cumulative':
-            return daily_counts.cumsum()
+            daily_counts = daily_counts.cumsum()
         
         return daily_counts
 
