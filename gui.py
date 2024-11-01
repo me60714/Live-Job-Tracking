@@ -43,6 +43,13 @@ class MainWindow(QMainWindow):
         filter_layout.addWidget(QLabel("Stage:"))
         filter_layout.addWidget(self.stage_filter)
 
+        # Add view type selector
+        self.view_type = QComboBox(self)
+        self.view_type.addItems(['Daily Count', 'Cumulative'])
+        self.view_type.currentTextChanged.connect(self.update_data)
+        filter_layout.addWidget(QLabel("View Type:"))
+        filter_layout.addWidget(self.view_type)
+
         # Refresh button
         self.refresh_button = QPushButton('Refresh', self)
         self.refresh_button.clicked.connect(self.update_data)
