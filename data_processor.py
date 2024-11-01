@@ -60,10 +60,28 @@ class JiraDataProcessor:
         return pd.DataFrame(processed_data)
 
     def determine_stage(self, status: str) -> str:
-        if status == 'Testing':
+        """Determine the stage based on the issue status."""
+        # Define status mappings
+        testing_statuses = [
+            'Testing'
+        ]
+        
+        sample_prep_statuses = [
+            'Open',
+            'Sample Prep',
+            'In Progress',
+            'Quotation'
+        ]
+        
+        # All other statuses will be categorized as 'Other'
+        # Including: Report, Reported, Review, Invoiced, On Hold, Cancelled, Others
+        
+        if status in testing_statuses:
             return 'Testing'
-        else:
+        elif status in sample_prep_statuses:
             return 'Sample Preparation'
+        else:
+            return 'Other'
 
     @staticmethod
     def filter_issues(df: pd.DataFrame, start_date: str = None, end_date: str = None, stages: List[str] = None) -> pd.DataFrame:
@@ -142,60 +160,54 @@ class JiraDataProcessor:
     def find_specific_jobs(self):
         """Find specific jobs and output their states."""
         target_jobs = [
-            "INEW6003.0(6)",
-            "PIPW5000.0(5)",
-            "INMW7001.0(9-3)",
-            "FERV5031.0(16)",
-            "FERV5030.0(7)",
-            "FERV5029.0(25-2)",
-            "LIQW5000.0(8)",
-            "AECV6002.0(5)"
+            "INEW6003.0 (6)",
+            "PIPW5000.0 (5)",
+            "INMW7001.0 (9-3)",
+            "FERV5031.0 (16)",
+            "FERV5030.0 (7)",
+            "FERV5029.0 (25-2)",
+            "LIQW5000.0 (8)",
+            "AECV6002.0 (5)"
         ]
         
         jql_query = 'project = MTEST AND issuetype = Task AND parent IS EMPTY'
         try:
             print("Fetching issues from Jira...")
             issues = self.fetch_issues(jql_query)
-            print(f"Found {len(issues)} total issues")
             
-            found_issues = []
-            not_found = target_jobs.copy()
+            # Dictionary to store all unique states
+            all_states = set()
             
-            print("\nJob Status Report:")
-            print("-----------------")
+            print("\nStates for each job:")
+            print("-------------------")
             
             for issue in issues:
                 summary = issue['fields']['summary']
-                if summary in target_jobs:
-                    found_issues.append(issue)
-                    not_found.remove(summary)
-                    print(f"Found: {summary}")
-                    print(f"Status: {issue['fields']['status']['name']}")
-                    print("---")
+                # Try different formats
+                summary_variants = [
+                    summary,
+                    summary.replace(" ", ""),
+                    summary.replace("(", " (")
+                ]
+                
+                for target in target_jobs:
+                    target_variants = [
+                        target,
+                        target.replace(" ", ""),
+                        target.replace("(", " (")
+                    ]
+                    
+                    if any(s in target_variants for s in summary_variants):
+                        status = issue['fields']['status']['name']
+                        all_states.add(status)
+                        print(f"Job: {summary}")
+                        print(f"Status: {status}")
+                        print("---")
             
-            print(f"\nFound {len(found_issues)} matching issues")
-            
-            if found_issues:
-                try:
-                    file_path = 'jira_issues_for_states.json'
-                    print(f"Attempting to save to {file_path}")
-                    with open(file_path, 'w', encoding='utf-8') as f:
-                        json_str = json.dumps(found_issues, indent=2, ensure_ascii=False)
-                        print(f"JSON string length: {len(json_str)}")
-                        f.write(json_str)
-                    print(f"Successfully saved {len(found_issues)} issues to {file_path}")
-                except Exception as e:
-                    print(f"Error saving to file: {e}")
-                    print(f"Error type: {type(e)}")
-                    import traceback
-                    print(traceback.format_exc())
-            else:
-                print("\nNo matching issues found to save to file")
-            
-            if not_found:
-                print("\nJobs not found:")
-                for job in not_found:
-                    print(f"- {job}")
+            print("\nAll unique states found:")
+            print("----------------------")
+            for state in sorted(all_states):
+                print(f"- {state}")
                 
         except Exception as e:
             print(f"Error in main process: {e}")
