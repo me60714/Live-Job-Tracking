@@ -29,70 +29,35 @@ class JiraDataProcessor:
         
         jql_query += " AND issuetype = Task AND parent IS EMPTY ORDER BY created DESC"
         
-        print(f"Debug - JQL Query: {jql_query}")
-        
         params = {"jql": jql_query, "maxResults": 300}
         
         try:
             response = requests.get(api_endpoint, headers=headers, params=params, auth=(self.JIRA_USERNAME, self.JIRA_API_TOKEN))
             response.raise_for_status()
-            issues = response.json()['issues']
-            
-            print(f"Debug - Number of issues fetched: {len(issues)}")
-            # Print first few issues with summaries
-            for issue in issues[:3]:
-                print(f"Debug - Job: {issue['fields']['summary']}, Status: {issue['fields']['status']['name']}, "
-                      f"Created: {issue['fields']['created']}")
-                
-            return issues
+            return response.json()['issues']
         except requests.exceptions.RequestException as e:
             raise RuntimeError(f"Error fetching data from Jira: {e}")
-
-    def debug_print_issue(self, issues: List[Dict], target_key: str):
-        """Write a specific issue to a file for debugging purposes."""
-        if target_key in self.debugged_issues:
-            return
-        
-        for issue in issues:
-            if issue['key'] == target_key:
-                filename = f"jira_issue_{target_key}_debug.json"
-                with open(filename, 'w', encoding='utf-8') as f:
-                    json.dump(issue, f, indent=4, sort_keys=True, ensure_ascii=False)
-                print(f"Debug: Issue {target_key} has been written to {filename}")
-                self.debugged_issues.add(target_key)
-                break
-        else:
-            print(f"Debug: Issue {target_key} not found in the fetched data.")
 
     def process_issues(self, issues: List[Dict]) -> pd.DataFrame:
         """Process issues into a DataFrame."""
         processed_data = []
-        seen_summaries = set()  # To track unique issues
+        seen_jobs = set()
         
         for issue in issues:
-            summary = issue['fields']['summary']
-            # Skip if we've already processed this issue
-            if summary in seen_summaries:
+            job = issue['fields']['summary']
+            if job in seen_jobs:
                 continue
                 
-            seen_summaries.add(summary)
+            seen_jobs.add(job)
             data = {
-                'summary': summary,  # Changed from 'key' to 'summary'
+                'job': job,
                 'status': issue['fields']['status']['name'],
                 'created_date': pd.to_datetime(issue['fields']['created']).tz_localize(None),
                 'stage': self.determine_stage(issue['fields']['status']['name'])
             }
             processed_data.append(data)
         
-        df = pd.DataFrame(processed_data)
-        
-        # Print DataFrame info for debugging
-        print("\nDebug - Processed DataFrame Info:")
-        print(df.info())
-        print("\nDebug - First few rows:")
-        print(df.head())
-        
-        return df
+        return pd.DataFrame(processed_data)
 
     def determine_stage(self, status: str) -> str:
         if status == 'Testing':
@@ -159,23 +124,80 @@ class JiraDataProcessor:
             'aggregated_data': aggregated_data
         }
 
-    def aggregate_data(self, df: pd.DataFrame, view_type: str = 'Daily Count') -> pd.DataFrame:
+    def aggregate_data(self, df: pd.DataFrame, view_type: str = 'Daily Count', date_range: pd.DatetimeIndex = None) -> pd.DataFrame:
         """Aggregate data based on view type."""
         df['created_date'] = pd.to_datetime(df['created_date'])
         
-        # Group by date and count the number of jobs
-        daily_counts = df.groupby([df['created_date'].dt.date, 'stage']).agg({
-            'summary': 'count'  # Count number of jobs per day
-        }).unstack(fill_value=0)
+        daily_counts = df.groupby([df['created_date'].dt.date, 'stage']).size().unstack(fill_value=0)
         
-        # Print debug information
-        print("\nDebug - Daily job counts:")
-        for date in daily_counts.index:
-            count = daily_counts.loc[date].sum()
-            if count > 0:
-                print(f"Date: {date}, Number of jobs: {count}")
+        if date_range is not None:
+            dates = [d.date() for d in date_range]
+            daily_counts = daily_counts.reindex(dates, fill_value=0)
         
         if view_type == 'Cumulative':
-            daily_counts = daily_counts.cumsum()
+            return daily_counts.cumsum()
         
-        return daily_counts.reset_index().rename(columns={'created_date': 'date'}).set_index('date')
+        return daily_counts
+
+    def find_specific_jobs(self):
+        """Find specific jobs and output their states."""
+        target_jobs = [
+            "INEW6003.0(6)",
+            "PIPW5000.0(5)",
+            "INMW7001.0(9-3)",
+            "FERV5031.0(16)",
+            "FERV5030.0(7)",
+            "FERV5029.0(25-2)",
+            "LIQW5000.0(8)",
+            "AECV6002.0(5)"
+        ]
+        
+        jql_query = 'project = MTEST AND issuetype = Task AND parent IS EMPTY'
+        try:
+            print("Fetching issues from Jira...")
+            issues = self.fetch_issues(jql_query)
+            print(f"Found {len(issues)} total issues")
+            
+            found_issues = []
+            not_found = target_jobs.copy()
+            
+            print("\nJob Status Report:")
+            print("-----------------")
+            
+            for issue in issues:
+                summary = issue['fields']['summary']
+                if summary in target_jobs:
+                    found_issues.append(issue)
+                    not_found.remove(summary)
+                    print(f"Found: {summary}")
+                    print(f"Status: {issue['fields']['status']['name']}")
+                    print("---")
+            
+            print(f"\nFound {len(found_issues)} matching issues")
+            
+            if found_issues:
+                try:
+                    file_path = 'jira_issues_for_states.json'
+                    print(f"Attempting to save to {file_path}")
+                    with open(file_path, 'w', encoding='utf-8') as f:
+                        json_str = json.dumps(found_issues, indent=2, ensure_ascii=False)
+                        print(f"JSON string length: {len(json_str)}")
+                        f.write(json_str)
+                    print(f"Successfully saved {len(found_issues)} issues to {file_path}")
+                except Exception as e:
+                    print(f"Error saving to file: {e}")
+                    print(f"Error type: {type(e)}")
+                    import traceback
+                    print(traceback.format_exc())
+            else:
+                print("\nNo matching issues found to save to file")
+            
+            if not_found:
+                print("\nJobs not found:")
+                for job in not_found:
+                    print(f"- {job}")
+                
+        except Exception as e:
+            print(f"Error in main process: {e}")
+            import traceback
+            print(traceback.format_exc())
