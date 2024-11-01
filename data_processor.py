@@ -24,17 +24,11 @@ class JiraDataProcessor:
         headers = {"Accept": "application/json"}
         
         # Modify the JQL query to only fetch top-level tasks
-        # Remove the ORDER BY clause if present
         if "ORDER BY" in jql_query:
             jql_query = jql_query.split("ORDER BY")[0].strip()
         
-        # Add the conditions for Task type and no parent
-        jql_query += " AND issuetype = Task AND parent IS EMPTY"
+        jql_query += " AND issuetype = Task AND parent IS EMPTY ORDER BY created DESC"
         
-        # Add the ORDER BY clause at the end
-        jql_query += " ORDER BY created DESC"
-        
-        # Print the final JQL query for debugging
         print(f"Debug - JQL Query: {jql_query}")
         
         params = {"jql": jql_query, "maxResults": 300}
@@ -44,14 +38,12 @@ class JiraDataProcessor:
             response.raise_for_status()
             issues = response.json()['issues']
             
-            # Print number of issues fetched
             print(f"Debug - Number of issues fetched: {len(issues)}")
-            
-            # Print first few issues for verification
+            # Print first few issues with summaries
             for issue in issues[:3]:
-                print(f"Debug - Issue: {issue['key']}, Status: {issue['fields']['status']['name']}, "
+                print(f"Debug - Job: {issue['fields']['summary']}, Status: {issue['fields']['status']['name']}, "
                       f"Created: {issue['fields']['created']}")
-            
+                
             return issues
         except requests.exceptions.RequestException as e:
             raise RuntimeError(f"Error fetching data from Jira: {e}")
@@ -75,9 +67,17 @@ class JiraDataProcessor:
     def process_issues(self, issues: List[Dict]) -> pd.DataFrame:
         """Process issues into a DataFrame."""
         processed_data = []
+        seen_summaries = set()  # To track unique issues
+        
         for issue in issues:
+            summary = issue['fields']['summary']
+            # Skip if we've already processed this issue
+            if summary in seen_summaries:
+                continue
+                
+            seen_summaries.add(summary)
             data = {
-                'key': issue['key'],
+                'summary': summary,  # Changed from 'key' to 'summary'
                 'status': issue['fields']['status']['name'],
                 'created_date': pd.to_datetime(issue['fields']['created']).tz_localize(None),
                 'stage': self.determine_stage(issue['fields']['status']['name'])
