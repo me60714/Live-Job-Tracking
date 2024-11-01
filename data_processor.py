@@ -5,12 +5,14 @@ import requests
 from urllib.parse import urljoin
 import numpy as np
 import json
+from config import JIRA_URL, JIRA_USERNAME, JIRA_API_TOKEN
 
 class JiraDataProcessor:
+
     def __init__(self):
-        self.JIRA_URL = ""
-        self.JIRA_USERNAME = ""
-        self.JIRA_API_TOKEN = ""
+        self.JIRA_URL = JIRA_URL
+        self.JIRA_USERNAME = JIRA_USERNAME
+        self.JIRA_API_TOKEN = JIRA_API_TOKEN
 
     def fetch_issues(self, jql_query: str) -> List[Dict]:
         """Fetch issues from Jira API."""
