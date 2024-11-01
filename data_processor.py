@@ -23,6 +23,17 @@ class JiraDataProcessor:
         api_endpoint = urljoin(self.JIRA_URL, "/rest/api/2/search")
         headers = {"Accept": "application/json"}
         
+        # Modify the JQL query to only fetch top-level tasks
+        # Remove the ORDER BY clause if present
+        if "ORDER BY" in jql_query:
+            jql_query = jql_query.split("ORDER BY")[0].strip()
+        
+        # Add the conditions for Task type and no parent
+        jql_query += " AND issuetype = Task AND parent IS EMPTY"
+        
+        # Add the ORDER BY clause at the end
+        jql_query += " ORDER BY created DESC"
+        
         # Print the final JQL query for debugging
         print(f"Debug - JQL Query: {jql_query}")
         
