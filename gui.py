@@ -85,7 +85,7 @@ class MainWindow(QMainWindow):
         # Convert index to timestamp for plotting
         x = np.array([pd.Timestamp(date).timestamp() for date in df.index])
         
-        colors = ['r', 'g', 'b', 'c', 'm', 'y']  # Add more colors if needed
+        colors = ['r', 'g', 'b', 'c', 'm', 'y']
         for i, stage in enumerate(df.columns):
             color = colors[i % len(colors)]
             self.plot_widget.plot(x, df[stage].values, name=stage, pen=color)
@@ -96,6 +96,12 @@ class MainWindow(QMainWindow):
         # Set x-axis tick format to display dates with weekday abbreviations
         axis = self.plot_widget.getAxis('bottom')
         axis.setTicks([[(timestamp, pd.Timestamp(timestamp, unit='s').strftime('%a %Y-%m-%d')) for timestamp in x]])
+
+        # Set integer-only y-axis ticks
+        y_axis = self.plot_widget.getAxis('left')
+        y_max = int(np.ceil(df.values.max()))
+        y_ticks = [(i, str(i)) for i in range(y_max + 1)]
+        y_axis.setTicks([y_ticks])
         
         # Add legend
         self.plot_widget.addLegend()
