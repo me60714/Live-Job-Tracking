@@ -102,18 +102,15 @@ class MainWindow(QMainWindow):
         self.plot_widget.setLabel('left', y_label)
         self.plot_widget.setLabel('bottom', 'Date')
         
-        # Set x-axis tick format to display dates with weekday abbreviations
-        axis = self.plot_widget.getAxis('bottom')
-        axis.setTicks([[(timestamp, pd.Timestamp(timestamp, unit='s').strftime('%a %Y-%m-%d')) for timestamp in x]])
-
-        # Set integer-only y-axis ticks
+        # Set integer-only y-axis ticks with appropriate range
         y_axis = self.plot_widget.getAxis('left')
-        y_max = int(np.ceil(df.values.max()))
+        y_max = max(5, int(np.ceil(df.values.max())))  # Ensure at least 5 ticks
         y_ticks = [(i, str(i)) for i in range(y_max + 1)]
         y_axis.setTicks([y_ticks])
         
-        # Add legend
-        self.plot_widget.addLegend()
+        # Set x-axis tick format to display dates
+        axis = self.plot_widget.getAxis('bottom')
+        axis.setTicks([[(timestamp, pd.Timestamp(timestamp, unit='s').strftime('%a %Y-%m-%d')) for timestamp in x]])
         
-        # Set background to white
+        self.plot_widget.addLegend()
         self.plot_widget.setBackground('black')

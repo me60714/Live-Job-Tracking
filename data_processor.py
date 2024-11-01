@@ -162,7 +162,18 @@ class JiraDataProcessor:
     def aggregate_data(self, df: pd.DataFrame, view_type: str = 'Daily Count') -> pd.DataFrame:
         """Aggregate data based on view type."""
         df['created_date'] = pd.to_datetime(df['created_date'])
-        daily_counts = df.groupby([df['created_date'].dt.date, 'stage']).size().unstack(fill_value=0)
+        
+        # Group by date and count the number of jobs
+        daily_counts = df.groupby([df['created_date'].dt.date, 'stage']).agg({
+            'summary': 'count'  # Count number of jobs per day
+        }).unstack(fill_value=0)
+        
+        # Print debug information
+        print("\nDebug - Daily job counts:")
+        for date in daily_counts.index:
+            count = daily_counts.loc[date].sum()
+            if count > 0:
+                print(f"Date: {date}, Number of jobs: {count}")
         
         if view_type == 'Cumulative':
             daily_counts = daily_counts.cumsum()
