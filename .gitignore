@@ -1,0 +1,6 @@
+config.py
+Brainstorm.txt
+.cursorrules
+.venv/
+__pycache__/
+.vscode/
