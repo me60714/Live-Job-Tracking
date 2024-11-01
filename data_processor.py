@@ -23,23 +23,25 @@ class JiraDataProcessor:
         api_endpoint = urljoin(self.JIRA_URL, "/rest/api/2/search")
         headers = {"Accept": "application/json"}
         
-        # Modify the JQL query to only fetch top-level tasks
-        # Remove the ORDER BY clause if present
-        if "ORDER BY" in jql_query:
-            jql_query = jql_query.split("ORDER BY")[0].strip()
-        
-        # Add the conditions for Task type and no parent
-        jql_query += " AND issuetype = Task AND parent IS EMPTY"
-        
-        # Add the ORDER BY clause at the end
-        jql_query += " ORDER BY created DESC"
+        # Print the final JQL query for debugging
+        print(f"Debug - JQL Query: {jql_query}")
         
         params = {"jql": jql_query, "maxResults": 300}
         
         try:
             response = requests.get(api_endpoint, headers=headers, params=params, auth=(self.JIRA_USERNAME, self.JIRA_API_TOKEN))
             response.raise_for_status()
-            return response.json()['issues']
+            issues = response.json()['issues']
+            
+            # Print number of issues fetched
+            print(f"Debug - Number of issues fetched: {len(issues)}")
+            
+            # Print first few issues for verification
+            for issue in issues[:3]:
+                print(f"Debug - Issue: {issue['key']}, Status: {issue['fields']['status']['name']}, "
+                      f"Created: {issue['fields']['created']}")
+            
+            return issues
         except requests.exceptions.RequestException as e:
             raise RuntimeError(f"Error fetching data from Jira: {e}")
 
@@ -60,15 +62,26 @@ class JiraDataProcessor:
             print(f"Debug: Issue {target_key} not found in the fetched data.")
 
     def process_issues(self, issues: List[Dict]) -> pd.DataFrame:
-        return pd.DataFrame([
-            {
+        """Process issues into a DataFrame."""
+        processed_data = []
+        for issue in issues:
+            data = {
                 'key': issue['key'],
                 'status': issue['fields']['status']['name'],
                 'created_date': pd.to_datetime(issue['fields']['created']).tz_localize(None),
                 'stage': self.determine_stage(issue['fields']['status']['name'])
             }
-            for issue in issues
-        ])
+            processed_data.append(data)
+        
+        df = pd.DataFrame(processed_data)
+        
+        # Print DataFrame info for debugging
+        print("\nDebug - Processed DataFrame Info:")
+        print(df.info())
+        print("\nDebug - First few rows:")
+        print(df.head())
+        
+        return df
 
     def determine_stage(self, status: str) -> str:
         if status == 'Testing':
