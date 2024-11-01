@@ -13,6 +13,7 @@ class JiraDataProcessor:
         self.JIRA_URL = JIRA_URL
         self.JIRA_USERNAME = JIRA_USERNAME
         self.JIRA_API_TOKEN = JIRA_API_TOKEN
+        self.debugged_issues = set()
 
     def fetch_issues(self, jql_query: str) -> List[Dict]:
         """Fetch issues from Jira API."""
@@ -49,12 +50,16 @@ class JiraDataProcessor:
 
     def debug_print_issue(self, issues: List[Dict], target_key: str):
         """Write a specific issue to a file for debugging purposes."""
+        if target_key in self.debugged_issues:
+            return
+        
         for issue in issues:
             if issue['key'] == target_key:
                 filename = f"jira_issue_{target_key}_debug.json"
                 with open(filename, 'w', encoding='utf-8') as f:
                     json.dump(issue, f, indent=4, sort_keys=True, ensure_ascii=False)
                 print(f"Debug: Issue {target_key} has been written to {filename}")
+                self.debugged_issues.add(target_key)
                 break
         else:
             print(f"Debug: Issue {target_key} not found in the fetched data.")
