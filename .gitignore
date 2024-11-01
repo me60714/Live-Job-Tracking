@@ -4,3 +4,6 @@ Brainstorm.txt
 .venv/
 __pycache__/
 .vscode/
+find_states.py
+hot_reload.py
+jira_issues_for_states.json
