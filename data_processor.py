@@ -6,6 +6,7 @@ from urllib.parse import urljoin
 import numpy as np
 import json
 from config import JIRA_URL, JIRA_USERNAME, JIRA_API_TOKEN
+import re
 
 class JiraDataProcessor:
 
@@ -23,42 +24,95 @@ class JiraDataProcessor:
         api_endpoint = urljoin(self.JIRA_URL, "/rest/api/2/search")
         headers = {"Accept": "application/json"}
         
-        # Print the final JQL query for debugging
+        # Only filter for parent issues
+        base_query = jql_query.replace(' ORDER BY created DESC', '')
+        jql_query = f'{base_query} AND parent IS EMPTY ORDER BY created DESC'
         print(f"JQL Query: {jql_query}")
         
-        params = {"jql": jql_query, "maxResults": 300}
+        all_issues = []
+        start_at = 0
+        max_results = 2000
         
-        try:
-            response = requests.get(api_endpoint, headers=headers, params=params, 
-                                  auth=(self.JIRA_USERNAME, self.JIRA_API_TOKEN))
-            response.raise_for_status()
-            issues = response.json()['issues']
-            print(f"Number of issues fetched: {len(issues)}")
-            return issues
-        except Exception as e:
-            print(f"Error fetching data: {e}")
-            return []
+        while True:
+            try:
+                params = {
+                    "jql": jql_query,
+                    "maxResults": max_results,
+                    "startAt": start_at
+                }
+                
+                response = requests.get(
+                    api_endpoint, 
+                    headers=headers, 
+                    params=params,
+                    auth=(self.JIRA_USERNAME, self.JIRA_API_TOKEN)
+                )
+                response.raise_for_status()
+                
+                data = response.json()
+                issues = data['issues']
+                
+                if not issues:
+                    break
+                    
+                all_issues.extend(issues)
+                start_at += max_results
+                
+                if len(all_issues) >= data['total']:
+                    break
+                    
+            except Exception as e:
+                print(f"Error fetching data: {e}")
+                break
+        
+        print(f"Number of issues fetched: {len(all_issues)}")
+        return all_issues
 
     def process_issues(self, issues: List[Dict]) -> pd.DataFrame:
         """Process issues into a DataFrame."""
+        import re
+        
+        job_pattern = r'^[A-Z]{4}\d{4}\.\d\s+\([^)]*\)'
+        
         processed_data = []
-        seen_jobs = set()
+        invalid_jobs = []
         
         print("\nProcessing issues:")
         for issue in issues:
-            job = issue['fields']['summary']
-            if job in seen_jobs:
+            job_number = issue['fields']['summary']
+            
+            if not job_number.startswith(tuple('ABCDEFGHIJKLMNOPQRSTUVWXYZ')):
+                invalid_jobs.append({
+                    'key': issue['key'],
+                    'job': job_number
+                })
+                print(f"Warning: Invalid job number format - Key: {issue['key']}, Job: {job_number}")
+                continue
+            
+            # Validate job number format
+            if not re.match(job_pattern, job_number):
+                invalid_jobs.append({
+                    'key': issue['key'],
+                    'job': job_number
+                })
+                print(f"Warning: Invalid job number format - Key: {issue['key']}, Job: {job_number}")
                 continue
                 
-            seen_jobs.add(job)
             data = {
-                'job': job,
+                'key': issue['key'],
+                'job': job_number,
                 'status': issue['fields']['status']['name'],
                 'created_date': pd.to_datetime(issue['fields']['created']).tz_localize(None),
                 'stage': self.determine_stage(issue['fields']['status']['name'])
             }
             processed_data.append(data)
-            print(f"Job: {job}, Status: {data['status']}, Created: {data['created_date']}, Stage: {data['stage']}")
+            print(f"Key: {data['key']}, Job: {data['job']}, Status: {data['status']}, Created: {data['created_date']}, Stage: {data['stage']}")
+        
+        if invalid_jobs:
+            print("\nWarning: Found issues with invalid job number format:")
+            for invalid in invalid_jobs:
+                print(f"Key: {invalid['key']}, Job: {invalid['job']}")
+            print(f"Total invalid jobs: {len(invalid_jobs)}")
         
         return pd.DataFrame(processed_data)
 
@@ -196,60 +250,3 @@ class JiraDataProcessor:
             daily_counts = daily_counts.cumsum()
         
         return daily_counts
-
-    def find_specific_jobs(self):
-        """Find specific jobs and output their states."""
-        target_jobs = [
-            "INEW6003.0 (6)",
-            "PIPW5000.0 (5)",
-            "INMW7001.0 (9-3)",
-            "FERV5031.0 (16)",
-            "FERV5030.0 (7)",
-            "FERV5029.0 (25-2)",
-            "LIQW5000.0 (8)",
-            "AECV6002.0 (5)"
-        ]
-        
-        jql_query = 'project = MTEST AND issuetype = Task AND parent IS EMPTY'
-        try:
-            print("Fetching issues from Jira...")
-            issues = self.fetch_issues(jql_query)
-            
-            # Dictionary to store all unique states
-            all_states = set()
-            
-            print("\nStates for each job:")
-            print("-------------------")
-            
-            for issue in issues:
-                summary = issue['fields']['summary']
-                # Try different formats
-                summary_variants = [
-                    summary,
-                    summary.replace(" ", ""),
-                    summary.replace("(", " (")
-                ]
-                
-                for target in target_jobs:
-                    target_variants = [
-                        target,
-                        target.replace(" ", ""),
-                        target.replace("(", " (")
-                    ]
-                    
-                    if any(s in target_variants for s in summary_variants):
-                        status = issue['fields']['status']['name']
-                        all_states.add(status)
-                        print(f"Job: {summary}")
-                        print(f"Status: {status}")
-                        print("---")
-            
-            print("\nAll unique states found:")
-            print("----------------------")
-            for state in sorted(all_states):
-                print(f"- {state}")
-                
-        except Exception as e:
-            print(f"Error in main process: {e}")
-            import traceback
-            print(traceback.format_exc())

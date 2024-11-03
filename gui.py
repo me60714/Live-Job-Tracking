@@ -17,16 +17,16 @@ class MainWindow(QMainWindow):
 
         # Main layout
         main_layout = QVBoxLayout()
-        main_layout.setSpacing(5)  # Vertical spacing between layouts
+        main_layout.setSpacing(5)
         main_layout.setContentsMargins(10, 10, 10, 10)  # Left, Top, Right, Bottom margins
         
         # Date selection layout
         date_layout = QHBoxLayout()
-        date_layout.setSpacing(10)  # Horizontal spacing between widgets
+        date_layout.setSpacing(10)
         
         # Calculate current week's Monday and Sunday
         current_date = QDate.currentDate()
-        days_since_monday = current_date.dayOfWeek() - 1  # Qt uses 1 for Monday
+        days_since_monday = current_date.dayOfWeek() - 1  #1 for Monday
         
         # Get this week's Monday
         this_monday = current_date.addDays(-days_since_monday)
@@ -68,7 +68,7 @@ class MainWindow(QMainWindow):
         
         # Filter layout
         filter_layout = QHBoxLayout()
-        filter_layout.setSpacing(10)  # Horizontal spacing between widgets
+        filter_layout.setSpacing(10) 
         
         # Stage filter
         stage_layout = QHBoxLayout()
@@ -81,18 +81,6 @@ class MainWindow(QMainWindow):
         stage_layout.addWidget(stage_label)
         stage_layout.addWidget(self.stage_filter)
         filter_layout.addLayout(stage_layout)
-        
-        # View type selector
-        view_layout = QHBoxLayout()
-        view_layout.setSpacing(5)
-        view_label = QLabel("View Type:")
-        view_label.setFixedWidth(70)
-        self.view_type = QComboBox(self)
-        self.view_type.addItems(['Daily Count', 'Cumulative'])
-        self.view_type.currentTextChanged.connect(self.update_data)
-        view_layout.addWidget(view_label)
-        view_layout.addWidget(self.view_type)
-        filter_layout.addLayout(view_layout)
         
         # Add spacing before refresh button
         filter_layout.addSpacing(20)
@@ -150,7 +138,7 @@ class MainWindow(QMainWindow):
     def update_data(self):
         stage = self.stage_filter.currentText()
         stages = [stage] if stage != 'All' else None
-        view_type = self.view_type.currentText()
+        view_type = 'Cumulative'
 
         start_date = self.start_date.date().toString("yyyy-MM-dd")
         end_date = self.end_date.date().toString("yyyy-MM-dd")
@@ -159,9 +147,9 @@ class MainWindow(QMainWindow):
         self.update_plot(data, view_type)
 
     def update_plot(self, data, view_type):
+
         self.plot_widget.clear()
         
-        # Define fixed order of stages and their colors
         STAGE_ORDER = ['Sample Preparation', 'Testing', 'Other']
         colors = {
             'Sample Preparation': pg.mkColor('#375E97'), #deep blue
@@ -169,12 +157,10 @@ class MainWindow(QMainWindow):
             'Other': pg.mkColor('#FFBB00')               #yellow-orange
         }
         
-        # Safely remove old legend
-        if hasattr(self.plot_widget, 'legend') and self.plot_widget.legend is not None:
-            try:
-                self.plot_widget.legend.scene().removeItem(self.plot_widget.legend)
-            except:
-                pass
+        # Remove old legend if it exists
+        if hasattr(self, 'legend'):
+            self.plot_widget.removeItem(self.legend)
+            delattr(self, 'legend')
         
         df = data['aggregated_data']
         
@@ -187,31 +173,43 @@ class MainWindow(QMainWindow):
         
         self.plot_widget.setYRange(0, y_max)
         
+        # Create new legend first
+        self.legend = self.plot_widget.addLegend(offset=(10, 10)) 
+        
         # Plot data if available
         if not df.empty:
             x = np.array([pd.Timestamp(date).timestamp() for date in df.index])
             
-            if len(x) > 1:
-                bar_width = (x[1] - x[0]) * 0.2
-            else:
-                bar_width = 86400 * 0.2
-            
-            x_offset = -bar_width
-            # Use fixed order for plotting
             for stage in STAGE_ORDER:
                 color = colors[stage]
-                bars = pg.BarGraphItem(
-                    x=x + x_offset,
-                    height=df[stage].values,
-                    width=bar_width,
-                    brush=color,
-                    name=stage
+                y_values = df[stage].values
+                
+                # Create line plot
+                plot_item = self.plot_widget.plot(
+                    x=x,
+                    y=y_values,
+                    pen=pg.mkPen(color, width=2),
+                    name=stage,
+                    symbol='o',
+                    symbolSize=8,
+                    symbolBrush=color,
+                    symbolPen=color
                 )
-                self.plot_widget.addItem(bars)
-                x_offset += bar_width
+                
+                # Add value labels next to each point
+                for i, (x_val, y_val) in enumerate(zip(x, y_values)):
+                    if y_val > 0:
+                        text = pg.TextItem(
+                            text=str(int(y_val)),
+                            color=color,
+                            anchor=(0, 1)
+                        )
+                        self.plot_widget.addItem(text)
+                        x_offset = (x[-1] - x[0]) * 0.001
+                        text.setPos(x_val + x_offset, y_val)
         
         # Set labels
-        y_label = 'Total Number of Jobs' if view_type == 'Cumulative' else 'Daily Number of Jobs'
+        y_label = 'Total Number of Jobs' if view_type == 'Cumulative' else 'Number of Jobs'
         self.plot_widget.setLabel('left', y_label)
         self.plot_widget.setLabel('bottom', 'Date')
         
@@ -225,11 +223,5 @@ class MainWindow(QMainWindow):
             axis = self.plot_widget.getAxis('bottom')
             axis.setTicks([[(timestamp, pd.Timestamp(timestamp, unit='s').strftime('%a %Y-%m-%d')) 
                             for timestamp in x]])
-        
-        # Create legend with fixed order
-        self.plot_widget.legend = self.plot_widget.addLegend(offset=(-750, 30))
-        for stage in STAGE_ORDER:
-            sample = pg.PlotDataItem(pen=colors[stage])
-            self.plot_widget.legend.addItem(sample, stage)
         
         self.plot_widget.setBackground('black')
