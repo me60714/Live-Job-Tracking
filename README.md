@@ -116,7 +116,7 @@ SOFTWARE.
 
 ## Authors
 
-- Wayne Kao - Initial work - [YourGitHub](https://github.com/me60714)
+- Wayne Kao - Initial work - [GitHub](https://github.com/me60714)
 
 ## Acknowledgments
 
