@@ -75,12 +75,12 @@ The application uses the following configuration options:
   - Other: Yellow-Orange
 
 ## Project Structure
-job-live-tracking/
-├── live_job_tracking.py # Main entry point
-├── data_processor.py # JIRA data processing
-├── gui.py # PyQt5 user interface
-├── config.py # Configuration (not in repo)
-└── requirements.txt # Package dependencies
+job-live-tracking/ 
+├── live_job_tracking.py # Main entry point 
+├── data_processor.py # JIRA data processing 
+├── gui.py # PyQt5 user interface 
+├── config.py # Configuration (not in repo) 
+└── requirements.txt # Package dependencies 
 
 ## Contributing
 
