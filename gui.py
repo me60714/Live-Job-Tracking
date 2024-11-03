@@ -147,9 +147,9 @@ class MainWindow(QMainWindow):
         self.update_plot(data, view_type)
 
     def update_plot(self, data, view_type):
-
         self.plot_widget.clear()
         
+        # Define fixed order of stages and their colors
         STAGE_ORDER = ['Sample Preparation', 'Testing', 'Other']
         colors = {
             'Sample Preparation': pg.mkColor('#375E97'), #deep blue
@@ -164,17 +164,18 @@ class MainWindow(QMainWindow):
         
         df = data['aggregated_data']
         
-        # Set y-axis range
-        if df.empty:
+        # Set y-axis range, handling NaN values
+        if df.empty or df.isna().all().all():  # Check if DataFrame is empty or all NaN
             y_max = 5
         else:
-            data_max = int(np.ceil(df.values.max()))
+            # Replace NaN with 0 before finding max
+            data_max = int(np.ceil(df.fillna(0).values.max()))
             y_max = max(5, data_max)
         
         self.plot_widget.setYRange(0, y_max)
         
         # Create new legend first
-        self.legend = self.plot_widget.addLegend(offset=(10, 10)) 
+        self.legend = self.plot_widget.addLegend(offset=(10, 10))
         
         # Plot data if available
         if not df.empty:
@@ -182,7 +183,7 @@ class MainWindow(QMainWindow):
             
             for stage in STAGE_ORDER:
                 color = colors[stage]
-                y_values = df[stage].values
+                y_values = df[stage].fillna(0).values  # Replace NaN with 0
                 
                 # Create line plot
                 plot_item = self.plot_widget.plot(
@@ -213,9 +214,18 @@ class MainWindow(QMainWindow):
         self.plot_widget.setLabel('left', y_label)
         self.plot_widget.setLabel('bottom', 'Date')
         
-        # Set y-axis ticks
+        # Set y-axis ticks with appropriate spacing
         y_axis = self.plot_widget.getAxis('left')
-        y_ticks = [(i, str(i)) for i in range(y_max + 1)]
+        if y_max <= 20:
+            step = 1
+        elif y_max <= 50:
+            step = 5
+        elif y_max <= 100:
+            step = 10
+        else:
+            step = 20
+        
+        y_ticks = [(i, str(i)) for i in range(0, y_max + 1, step)]
         y_axis.setTicks([y_ticks])
         
         # Set x-axis ticks if data exists

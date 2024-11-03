@@ -24,9 +24,9 @@ class JiraDataProcessor:
         api_endpoint = urljoin(self.JIRA_URL, "/rest/api/2/search")
         headers = {"Accept": "application/json"}
         
-        # Only filter for parent issues
+        # Only filter for parent issues and label including CIPP
         base_query = jql_query.replace(' ORDER BY created DESC', '')
-        jql_query = f'{base_query} AND parent IS EMPTY ORDER BY created DESC'
+        jql_query = f'{base_query} AND parent IS EMPTY AND labels in (CIPP) ORDER BY created DESC'
         print(f"JQL Query: {jql_query}")
         
         all_issues = []
@@ -51,6 +51,9 @@ class JiraDataProcessor:
                 
                 data = response.json()
                 issues = data['issues']
+                
+                print(f"Total available issues: {data['total']}")
+                print(f"Fetched {len(issues)} issues in this request")
                 
                 if not issues:
                     break
@@ -77,7 +80,11 @@ class JiraDataProcessor:
         processed_data = []
         invalid_jobs = []
         
+        # Print header
         print("\nProcessing issues:")
+        print(f"{'Key':<12} {'Job Number':<35} {'Status':<15} {'Created':<16} {'Stage':<15}")
+        print("-" * 90)
+        
         for issue in issues:
             job_number = issue['fields']['summary']
             
@@ -98,15 +105,20 @@ class JiraDataProcessor:
                 print(f"Warning: Invalid job number format - Key: {issue['key']}, Job: {job_number}")
                 continue
                 
+            created_date = pd.to_datetime(issue['fields']['created']).tz_localize(None)
+            formatted_date = created_date.strftime('%Y-%m-%d %H:%M')
+            
             data = {
                 'key': issue['key'],
                 'job': job_number,
                 'status': issue['fields']['status']['name'],
-                'created_date': pd.to_datetime(issue['fields']['created']).tz_localize(None),
+                'created_date': created_date,
                 'stage': self.determine_stage(issue['fields']['status']['name'])
             }
             processed_data.append(data)
-            print(f"Key: {data['key']}, Job: {data['job']}, Status: {data['status']}, Created: {data['created_date']}, Stage: {data['stage']}")
+            
+            # Print formatted row
+            print(f"{data['key']:<12} {data['job']:<35} {data['status']:<15} {formatted_date:<16} {data['stage']:<15}")
         
         if invalid_jobs:
             print("\nWarning: Found issues with invalid job number format:")
@@ -118,20 +130,29 @@ class JiraDataProcessor:
 
     def determine_stage(self, status: str) -> str:
         """Determine the stage based on the issue status."""
-        # Define status mappings
+        status = status.lower()  #for case-insensitive comparison
+        
+        # Define status mappings with variations
         testing_statuses = [
-            'Testing'
+            'testing'
         ]
         
         sample_prep_statuses = [
-            'Open',
-            'Sample Prep',
-            'In Progress',
-            'Quotation'
+            'sample prep',
+            'sample preparation'
         ]
         
-        # All other statuses will be categorized as 'Other'
-        # Including: Report, Reported, Review, Invoiced, On Hold, Cancelled, Others
+        other_statuses = [
+            'invoiced',
+            'reported',
+            'report',
+            'on hold',
+            'cancelled',
+            'open',
+            'in progress',
+            'quotation',
+            'other' 
+        ]
         
         if status in testing_statuses:
             return 'Testing'
@@ -142,30 +163,36 @@ class JiraDataProcessor:
 
     def filter_issues(self, df: pd.DataFrame, start_date: str = None, end_date: str = None, stages: List[str] = None) -> pd.DataFrame:
         """Filter issues based on date range and stages."""
-        if df.empty:
-            return df
-            
-        # Convert dates to datetime
-        df['created_date'] = pd.to_datetime(df['created_date'])
+        print("\nFiltering data:")
         
         if start_date:
-            start = pd.to_datetime(start_date)
-            df = df[df['created_date'].dt.date >= start.date()]
-        
+            print(f"Start date: {start_date}")
         if end_date:
-            end = pd.to_datetime(end_date) + pd.Timedelta(days=1)
-            df = df[df['created_date'].dt.date < end.date()]
+            print(f"End date: {end_date}")
         
-        if stages and 'All' not in stages:
-            df = df[df['stage'].isin(stages)]
+        filtered_df = df.copy()
         
-        print(f"\nFiltering data:")
-        print(f"Start date: {start_date}")
-        print(f"End date: {end_date}")
-        print(f"Number of issues after filtering: {len(df)}")
-        print(f"Date range of data: {df['created_date'].min() if not df.empty else 'No data'} to {df['created_date'].max() if not df.empty else 'No data'}")
+        # Convert both dates to datetime
+        if start_date:
+            start_date = pd.to_datetime(start_date)
+        if end_date:
+            end_date = pd.to_datetime(end_date)
         
-        return df
+        # Filter by date range
+        if start_date and end_date:
+            filtered_df = filtered_df[
+                (filtered_df['created_date'] <= end_date)
+            ]
+        
+        if stages:
+            filtered_df = filtered_df[filtered_df['stage'].isin(stages)]
+        
+        print(f"Number of issues after filtering: {len(filtered_df)}")
+        
+        if not filtered_df.empty:
+            print(f"Date range of data: {filtered_df['created_date'].min()} to {filtered_df['created_date'].max()}")
+        
+        return filtered_df
 
     def get_total_issues(self, df: pd.DataFrame) -> Dict[str, int]:
         return df['stage'].value_counts().to_dict()
@@ -225,28 +252,39 @@ class JiraDataProcessor:
         # Define fixed order of stages
         STAGE_ORDER = ['Sample Preparation', 'Testing', 'Other']
         
-        if df.empty and date_range is not None:
-            # Create empty DataFrame with ordered stages
-            dates = [d.date() for d in date_range]
-            daily_counts = pd.DataFrame(0, index=dates, columns=STAGE_ORDER)
-        else:
-            # Group by date and stage, count jobs
-            daily_counts = df.groupby([df['created_date'].dt.date, 'stage']).size().unstack(fill_value=0)
-            
-            # Ensure all stages are present and in correct order
-            for stage in STAGE_ORDER:
-                if stage not in daily_counts.columns:
-                    daily_counts[stage] = 0
-            
-            # Reorder columns
-            daily_counts = daily_counts[STAGE_ORDER]
-        
-        # Ensure all dates in range are included
+        # Create complete date range with all dates
         if date_range is not None:
             dates = [d.date() for d in date_range]
-            daily_counts = daily_counts.reindex(dates, fill_value=0)
-        
-        if view_type == 'Cumulative':
-            daily_counts = daily_counts.cumsum()
+            daily_counts = pd.DataFrame(0, index=dates, columns=STAGE_ORDER)
+            
+            if not df.empty:
+                # Get the count of jobs before the start date (for cumulative view)
+                start_date = date_range[0]
+                previous_jobs = df[df['created_date'] < start_date].groupby('stage').size()
+                
+                # Group by date and stage, count jobs for the selected period
+                period_counts = df[df['created_date'] >= start_date].groupby([df['created_date'].dt.date, 'stage']).size().unstack(fill_value=0)
+                
+                # Ensure all columns exist in period_counts
+                for stage in STAGE_ORDER:
+                    if stage not in period_counts.columns:
+                        period_counts[stage] = 0
+                
+                # Add counts to the appropriate dates
+                for date in period_counts.index:
+                    if date in daily_counts.index:
+                        daily_counts.loc[date] = period_counts.loc[date]
+                
+                # For cumulative view, add previous totals once and then cumsum
+                if view_type == 'Cumulative':
+                    # Add previous counts only to the first day
+                    for stage in STAGE_ORDER:
+                        if stage in previous_jobs:
+                            daily_counts.loc[daily_counts.index[0], stage] += previous_jobs[stage]
+                    
+                    # Fill NaN with 0 before cumsum
+                    daily_counts = daily_counts.fillna(0)
+                    # Now do the cumulative sum
+                    daily_counts = daily_counts.cumsum()
         
         return daily_counts
