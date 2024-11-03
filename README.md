@@ -122,3 +122,8 @@ SOFTWARE.
 
 - JIRA API documentation
 - PyQt5 and PyQtGraph libraries
+
+## Version
+
+- Current Version: 1.0.0
+- Last Updated: 2024-11-03
