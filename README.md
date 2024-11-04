@@ -88,6 +88,20 @@ Live-Job-Tracking/
 4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
 
+## Acknowledgments
+
+- JIRA API documentation
+- PyQt5 and PyQtGraph libraries
+
+## Version
+
+- Current Version: 1.0.0
+- Last Updated: 2024-11-03
+
+## Authors
+
+- Wayne Kao - Initial work - [GitHub](https://github.com/me60714)
+
 ## License
 
 MIT License
@@ -111,17 +125,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
-## Authors
-
-- Wayne Kao - Initial work - [GitHub](https://github.com/me60714)
-
-## Acknowledgments
-
-- JIRA API documentation
-- PyQt5 and PyQtGraph libraries
-
-## Version
-
-- Current Version: 1.0.0
-- Last Updated: 2024-11-03
