@@ -1,6 +1,6 @@
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
-# Job Live Tracking
+# Live Job Tracking
 
 An automatic live job tracking application that visualizes JIRA workflow data in real-time.
 
@@ -28,23 +28,20 @@ This application provides a real-time visualization of job statuses from JIRA, h
 ## Installation
 
 1. Clone the repository:
-```
 bash
-
-git clone https://github.com/me60714/job-live-tracking.git
-
-cd job-live-tracking
+```
+git clone https://github.com/me60714/Live-Job-Tracking.git
+cd Live-Job-Tracking
 ```
 2. Install required packages:
-```
 bash
-
+```
 pip install -r requirements.txt
 ```
 3. Create a `config.py` file with your JIRA credentials:
-```
+   
 python
-
+```
 JIRA_URL = "your_jira_url"
 JIRA_USERNAME = "your_username"
 JIRA_API_TOKEN = "your_api_token"
@@ -53,8 +50,9 @@ JIRA_API_TOKEN = "your_api_token"
 ## Usage
 
 1. Run the application:
-```
+
 bash
+```
 python live_job_tracking.py
 ```
 2. Use the interface to:
@@ -75,12 +73,12 @@ The application uses the following configuration options:
   - Other: Yellow-Orange
 
 ## Project Structure
-job-live-tracking/  
-├── live_job_tracking.py # Main entry point  
-├── data_processor.py # JIRA data processing  
-├── gui.py # PyQt5 user interface  
-├── config.py # Configuration (not in repo)  
-└── requirements.txt # Package dependencies  
+Live-Job-Tracking/  
+├── live_job_tracking.py #Main entry point  
+├── data_processor.py    #JIRA data processing  
+├── gui.py               #PyQt5 user interface  
+├── config.py            #Configuration (not in repo)  
+└── requirements.txt     #Package dependencies  
 
 ## Contributing
 
