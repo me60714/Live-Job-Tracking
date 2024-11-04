@@ -27,7 +27,7 @@ This application provides a real-time visualization of job statuses from JIRA, h
 
 ## Installation
 
-1. Clone the repository:
+1. Clone the repository:  
 bash
 ```
 git clone https://github.com/me60714/Live-Job-Tracking.git
