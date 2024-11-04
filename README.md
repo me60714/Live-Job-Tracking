@@ -31,7 +31,7 @@ This application provides a real-time visualization of job statuses from JIRA, h
 ```
 bash
 
-git clone https://github.com/yourusername/job-live-tracking.git
+git clone https://github.com/me60714/job-live-tracking.git
 
 cd job-live-tracking
 ```
