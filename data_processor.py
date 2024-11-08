@@ -83,7 +83,7 @@ class JiraDataProcessor:
         # Print header
         print("\nProcessing issues:")
         print(f"{'Key':<12} {'Job Number':<35} {'Status':<15} {'Created':<16} {'Stage':<15}")
-        print("-" * 90)
+        print("-" * 100)
         
         for issue in issues:
             job_number = issue['fields']['summary']
