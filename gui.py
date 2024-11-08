@@ -149,6 +149,11 @@ class MainWindow(QMainWindow):
     def update_plot(self, data, view_type):
         self.plot_widget.clear()
         
+        # Disable mouse interactions
+        self.plot_widget.setMouseEnabled(x=False, y=False)
+        self.plot_widget.getPlotItem().getViewBox().setMenuEnabled(False)
+        self.plot_widget.getPlotItem().getViewBox().setLimits(xMin=None, xMax=None, yMin=0, yMax=None)
+        
         # Define fixed order of stages and their colors
         STAGE_ORDER = ['Sample Preparation', 'Testing', 'Other']
         colors = {
