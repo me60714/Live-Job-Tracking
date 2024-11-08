@@ -133,7 +133,6 @@ class JiraDataProcessor:
         other_status_priority = {status.lower(): idx for idx, status in enumerate([
             'quotation',
             'in progress',
-            'open',
             'report',
             'review',
             'reported',
@@ -145,9 +144,9 @@ class JiraDataProcessor:
         
         # Create stage priority mapping
         stage_priority = {
-            'Sample Preparation': 0,
-            'Testing': 1,
-            'Other': 2
+            'Open': 0,
+            'Sample Preparation': 1,
+            'Testing': 2
         }
         
         # Add priority columns for sorting
@@ -182,6 +181,9 @@ class JiraDataProcessor:
         """Determine the stage based on the issue status."""
         status = status.lower()
         
+        open_statuses = [
+            'open'
+        ]
 
         testing_statuses = [
             'testing'
@@ -195,7 +197,6 @@ class JiraDataProcessor:
         other_statuses = [
             'quotation',
             'in progress',
-            'open',
             'report',
             'review',
             'reported',
@@ -209,6 +210,8 @@ class JiraDataProcessor:
             return 'Testing'
         elif status in sample_prep_statuses:
             return 'Sample Preparation'
+        elif status in open_statuses:
+            return 'Open'
         else:
             return 'Other'
 
@@ -300,7 +303,7 @@ class JiraDataProcessor:
         print("\nAggregating data:")
         print(f"Input DataFrame shape: {df.shape}")
         
-        STAGE_ORDER = ['Sample Preparation', 'Testing', 'Other']
+        STAGE_ORDER = ['Open', 'Sample Preparation', 'Testing', 'Other']
         
         if date_range is not None:
             dates = [d.date() for d in date_range]
