@@ -80,7 +80,6 @@ class JiraDataProcessor:
         processed_data = []
         invalid_jobs = []
         
-        # Process all issues first
         for issue in issues:
             job_number = issue['fields']['summary']
             
@@ -165,9 +164,9 @@ class JiraDataProcessor:
 
     def determine_stage(self, status: str) -> str:
         """Determine the stage based on the issue status."""
-        status = status.lower()  #for case-insensitive comparison
+        status = status.lower()
         
-        # Define status mappings with variations
+
         testing_statuses = [
             'testing'
         ]
