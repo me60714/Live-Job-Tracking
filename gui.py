@@ -76,7 +76,7 @@ class MainWindow(QMainWindow):
         stage_label = QLabel("Stage:")
         stage_label.setFixedWidth(50)
         self.stage_filter = QComboBox(self)
-        self.stage_filter.addItems(['All','open', 'Sample Preparation', 'Testing'])
+        self.stage_filter.addItems(['All','open', 'Sample Preparation', 'Testing', 'Report'])
         self.stage_filter.currentTextChanged.connect(self.update_data)
         stage_layout.addWidget(stage_label)
         stage_layout.addWidget(self.stage_filter)
@@ -106,35 +106,48 @@ class MainWindow(QMainWindow):
 
     def on_date_changed(self):
         """Ensure dates always align to Monday-Friday weeks."""
-        if self.sender() == self.start_date:
-            self.start_date.calendarWidget().hide()
-            
-            # Adjust to Monday if needed
-            start_date = self.start_date.date()
-            days_to_monday = start_date.dayOfWeek() - 1
-            if days_to_monday > 0:
-                start_date = start_date.addDays(-days_to_monday)
-                self.start_date.setDate(start_date)
-            
-            # Set end date to Friday (4 days after Monday)
-            end_date = start_date.addDays(4)
-            self.end_date.setDate(end_date)
-            
-        elif self.sender() == self.end_date:
-            self.end_date.calendarWidget().hide()
-            
-            # Adjust to Friday if needed
-            end_date = self.end_date.date()
-            days_to_friday = 5 - end_date.dayOfWeek()
-            if days_to_friday != 0:
-                end_date = end_date.addDays(days_to_friday)
-                self.end_date.setDate(end_date)
-            
-            # Set start date to Monday (4 days before Friday)
-            start_date = end_date.addDays(-4)
-            self.start_date.setDate(start_date)
+        # Store current dates before modification
+        current_start = self.start_date.date()
+        current_end = self.end_date.date()
         
-        self.update_data()
+        if self.sender() == self.start_date:
+            # Adjust to Monday if needed
+            days_to_monday = current_start.dayOfWeek() - 1
+            if days_to_monday > 0:
+                new_start = current_start.addDays(-days_to_monday)
+            else:
+                new_start = current_start
+                
+            # Set end date to Friday (4 days after Monday)
+            new_end = new_start.addDays(4)
+            
+            # Only update if dates have changed
+            if new_start != current_start:
+                self.start_date.setDate(new_start)
+            if new_end != current_end:
+                self.end_date.setDate(new_end)
+                
+        elif self.sender() == self.end_date:
+            # Adjust to Friday if needed
+            days_to_friday = 5 - current_end.dayOfWeek()
+            if days_to_friday != 0:
+                new_end = current_end.addDays(days_to_friday)
+            else:
+                new_end = current_end
+                
+            # Set start date to Monday (4 days before Friday)
+            new_start = new_end.addDays(-4)
+            
+            # Only update if dates have changed
+            if new_end != current_end:
+                self.end_date.setDate(new_end)
+            if new_start != current_start:
+                self.start_date.setDate(new_start)
+        
+        # Update data only if dates have actually changed
+        if (current_start != self.start_date.date() or 
+            current_end != self.end_date.date()):
+            self.update_data()
 
     def update_data(self):
         stage = self.stage_filter.currentText()
@@ -156,11 +169,12 @@ class MainWindow(QMainWindow):
         self.plot_widget.getPlotItem().getViewBox().setLimits(xMin=None, xMax=None, yMin=0, yMax=None)
         
         # Define fixed order of stages and their colors
-        STAGE_ORDER = ['Open','Sample Preparation', 'Testing']
+        STAGE_ORDER = ['Open','Sample Preparation', 'Testing', 'Report']
         colors = {
             'Open': pg.mkColor('#FFBB00'),               #yellow-orange
             'Sample Preparation': pg.mkColor('#375E97'), #deep blue
-            'Testing': pg.mkColor('#FB6542')            #orange-red
+            'Testing': pg.mkColor('#FB6542'),            #orange-red
+            'Report': pg.mkColor('#008000')             #green
         }
         
         # Remove old legend if it exists
