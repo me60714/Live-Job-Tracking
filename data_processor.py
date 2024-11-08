@@ -38,7 +38,8 @@ class JiraDataProcessor:
                 params = {
                     "jql": jql_query,
                     "maxResults": max_results,
-                    "startAt": start_at
+                    "startAt": start_at,
+                    "expand": "changelog"
                 }
                 
                 response = requests.get(
@@ -99,14 +100,29 @@ class JiraDataProcessor:
                 continue
                 
             created_date = pd.to_datetime(issue['fields']['created']).tz_localize(None)
-            formatted_date = created_date.strftime('%Y-%m-%d %H:%M')
+            current_status = issue['fields']['status']['name']
             
+            # Get status change history
+            status_changes = []
+            if 'changelog' in issue:
+                for history in issue['changelog']['histories']:
+                    for item in history['items']:
+                        if item['field'] == 'status':
+                            change_date = pd.to_datetime(history['created']).tz_localize(None)
+                            status_changes.append({
+                                'date': change_date,
+                                'from_status': item['fromString'],
+                                'to_status': item['toString']
+                            })
+            
+            # Add initial status
             data = {
                 'key': issue['key'],
                 'job': job_number,
-                'status': issue['fields']['status']['name'],
+                'status': current_status,
                 'created_date': created_date,
-                'stage': self.determine_stage(issue['fields']['status']['name'])
+                'stage': self.determine_stage(current_status),
+                'status_changes': status_changes
             }
             processed_data.append(data)
 
@@ -284,42 +300,46 @@ class JiraDataProcessor:
         print("\nAggregating data:")
         print(f"Input DataFrame shape: {df.shape}")
         
-        # Define fixed order of stages
         STAGE_ORDER = ['Sample Preparation', 'Testing', 'Other']
         
-        # Create complete date range with all dates
         if date_range is not None:
             dates = [d.date() for d in date_range]
             daily_counts = pd.DataFrame(0, index=dates, columns=STAGE_ORDER)
             
             if not df.empty:
-                # Get the count of jobs before the start date (for cumulative view)
-                start_date = date_range[0]
-                previous_jobs = df[df['created_date'] < start_date].groupby('stage').size()
-                
-                # Group by date and stage, count jobs for the selected period
-                period_counts = df[df['created_date'] >= start_date].groupby([df['created_date'].dt.date, 'stage']).size().unstack(fill_value=0)
-                
-                # Ensure all columns exist in period_counts
-                for stage in STAGE_ORDER:
-                    if stage not in period_counts.columns:
-                        period_counts[stage] = 0
-                
-                # Add counts to the appropriate dates
-                for date in period_counts.index:
-                    if date in daily_counts.index:
-                        daily_counts.loc[date] = period_counts.loc[date]
-                
-                # For cumulative view, add previous totals once and then cumsum
-                if view_type == 'Cumulative':
-                    # Add previous counts only to the first day
-                    for stage in STAGE_ORDER:
-                        if stage in previous_jobs:
-                            daily_counts.loc[daily_counts.index[0], stage] += previous_jobs[stage]
+                # Create a snapshot of issue states for each date
+                for date in dates:
+                    # Reset counts for this date
+                    stage_counts = {stage: 0 for stage in STAGE_ORDER}
                     
-                    # Fill NaN with 0 before cumsum
-                    daily_counts = daily_counts.fillna(0)
-                    # Now do the cumulative sum
-                    daily_counts = daily_counts.cumsum()
+                    for _, issue in df.iterrows():
+                        # Skip if issue wasn't created yet
+                        if issue['created_date'].date() > date:
+                            continue
+                        
+                        # Start with the initial stage
+                        current_stage = issue['stage']
+                        
+                        # Check status changes up to this date
+                        relevant_changes = [
+                            change for change in issue['status_changes']
+                            if change['date'].date() <= date
+                        ]
+                        
+                        if relevant_changes:
+                            # Get the most recent change
+                            last_change = sorted(relevant_changes, key=lambda x: x['date'])[-1]
+                            current_stage = self.determine_stage(last_change['to_status'])
+                        
+                        # Count this issue in its current stage
+                        stage_counts[current_stage] += 1
+                    
+                    # Update daily counts with the snapshot
+                    for stage in STAGE_ORDER:
+                        daily_counts.loc[date, stage] = stage_counts[stage]
+                
+                if view_type != 'Cumulative':
+                    # For non-cumulative view, subtract previous day's count
+                    daily_counts = daily_counts - daily_counts.shift(1).fillna(0)
         
         return daily_counts
