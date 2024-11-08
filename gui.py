@@ -76,7 +76,7 @@ class MainWindow(QMainWindow):
         stage_label = QLabel("Stage:")
         stage_label.setFixedWidth(50)
         self.stage_filter = QComboBox(self)
-        self.stage_filter.addItems(['All', 'Sample Preparation', 'Testing', 'Other'])
+        self.stage_filter.addItems(['All','open', 'Sample Preparation', 'Testing'])
         self.stage_filter.currentTextChanged.connect(self.update_data)
         stage_layout.addWidget(stage_label)
         stage_layout.addWidget(self.stage_filter)
@@ -155,11 +155,11 @@ class MainWindow(QMainWindow):
         self.plot_widget.getPlotItem().getViewBox().setLimits(xMin=None, xMax=None, yMin=0, yMax=None)
         
         # Define fixed order of stages and their colors
-        STAGE_ORDER = ['Sample Preparation', 'Testing', 'Other']
+        STAGE_ORDER = ['Open','Sample Preparation', 'Testing']
         colors = {
+            'Open': pg.mkColor('#FFBB00'),               #yellow-orange
             'Sample Preparation': pg.mkColor('#375E97'), #deep blue
-            'Testing': pg.mkColor('#FB6542'),            #orange-red
-            'Other': pg.mkColor('#FFBB00')               #yellow-orange
+            'Testing': pg.mkColor('#FB6542')            #orange-red
         }
         
         # Remove old legend if it exists
