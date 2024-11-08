@@ -80,11 +80,7 @@ class JiraDataProcessor:
         processed_data = []
         invalid_jobs = []
         
-        # Print header
-        print("\nProcessing issues:")
-        print(f"{'Key':<12} {'Job Number':<35} {'Status':<15} {'Created':<16} {'Stage':<15}")
-        print("-" * 100)
-        
+        # Process all issues first
         for issue in issues:
             job_number = issue['fields']['summary']
             
@@ -93,7 +89,6 @@ class JiraDataProcessor:
                     'key': issue['key'],
                     'job': job_number
                 })
-                print(f"Warning: Invalid job number format - Key: {issue['key']}, Job: {job_number}")
                 continue
             
             # Validate job number format
@@ -102,7 +97,6 @@ class JiraDataProcessor:
                     'key': issue['key'],
                     'job': job_number
                 })
-                print(f"Warning: Invalid job number format - Key: {issue['key']}, Job: {job_number}")
                 continue
                 
             created_date = pd.to_datetime(issue['fields']['created']).tz_localize(None)
@@ -116,17 +110,58 @@ class JiraDataProcessor:
                 'stage': self.determine_stage(issue['fields']['status']['name'])
             }
             processed_data.append(data)
-            
-            # Print formatted row
-            print(f"{data['key']:<12} {data['job']:<35} {data['status']:<15} {formatted_date:<16} {data['stage']:<15}")
+
+        # Convert to DataFrame for easier sorting
+        df = pd.DataFrame(processed_data)
         
+        # Create status priority mapping based on the order in other_statuses
+        other_status_priority = {status.lower(): idx for idx, status in enumerate([
+            'quotation',
+            'in progress',
+            'open',
+            'report',
+            'review',
+            'reported',
+            'invoiced',
+            'on hold',
+            'cancelled',
+            'other'
+        ])}
+        
+        # Create stage priority mapping
+        stage_priority = {
+            'Sample Preparation': 0,
+            'Testing': 1,
+            'Other': 2
+        }
+        
+        # Add priority columns for sorting
+        df['stage_priority'] = df['stage'].map(stage_priority)
+        df['status_priority'] = df['status'].str.lower().map(lambda x: other_status_priority.get(x, len(other_status_priority)))
+        
+        # Sort by stage priority, then status priority for 'Other' stage, then created_date
+        df = df.sort_values(['stage_priority', 'status_priority', 'created_date'])
+        
+        # Print header
+        print("\nProcessing issues:")
+        print(f"{'Key':<12} {'Job Number':<35} {'Status':<15} {'Created':<16} {'Stage':<15}")
+        print("-" * 100)
+        
+        # Print sorted rows
+        for _, row in df.iterrows():
+            formatted_date = row['created_date'].strftime('%Y-%m-%d %H:%M')
+            print(f"{row['key']:<12} {row['job']:<35} {row['status']:<15} {formatted_date:<16} {row['stage']:<15}")
+
+        # Print invalid jobs warning if any
         if invalid_jobs:
             print("\nWarning: Found issues with invalid job number format:")
             for invalid in invalid_jobs:
                 print(f"Key: {invalid['key']}, Job: {invalid['job']}")
             print(f"Total invalid jobs: {len(invalid_jobs)}")
         
-        return pd.DataFrame(processed_data)
+        # Drop the temporary sorting columns before returning
+        df = df.drop(['stage_priority', 'status_priority'], axis=1)
+        return df
 
     def determine_stage(self, status: str) -> str:
         """Determine the stage based on the issue status."""
