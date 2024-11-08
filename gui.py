@@ -105,32 +105,33 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(widget)
 
     def on_date_changed(self):
-        """Ensure dates always align to Monday-Sunday weeks."""
-        start_date = self.start_date.date()
-        end_date = self.end_date.date()
-        
-        # If start date changed, adjust it to Monday and set end date to Sunday
+        """Ensure dates always align to Monday-Friday weeks."""
         if self.sender() == self.start_date:
+            self.start_date.calendarWidget().hide()
+            
             # Adjust to Monday if needed
+            start_date = self.start_date.date()
             days_to_monday = start_date.dayOfWeek() - 1
             if days_to_monday > 0:
                 start_date = start_date.addDays(-days_to_monday)
                 self.start_date.setDate(start_date)
             
-            # Set end date to Sunday
-            end_date = start_date.addDays(6)
+            # Set end date to Friday (4 days after Monday)
+            end_date = start_date.addDays(4)
             self.end_date.setDate(end_date)
-        
-        # If end date changed, adjust it to Sunday and set start date to Monday
+            
         elif self.sender() == self.end_date:
-            # Adjust to Sunday if needed
-            days_to_sunday = 7 - end_date.dayOfWeek()
-            if days_to_sunday < 7:
-                end_date = end_date.addDays(days_to_sunday)
+            self.end_date.calendarWidget().hide()
+            
+            # Adjust to Friday if needed
+            end_date = self.end_date.date()
+            days_to_friday = 5 - end_date.dayOfWeek()
+            if days_to_friday != 0:
+                end_date = end_date.addDays(days_to_friday)
                 self.end_date.setDate(end_date)
             
-            # Set start date to Monday
-            start_date = end_date.addDays(-6)
+            # Set start date to Monday (4 days before Friday)
+            start_date = end_date.addDays(-4)
             self.start_date.setDate(start_date)
         
         self.update_data()
@@ -169,82 +170,85 @@ class MainWindow(QMainWindow):
         
         df = data['aggregated_data']
         
-        # Set y-axis range, handling NaN values
-        if df.empty or df.isna().all().all():  # Check if DataFrame is empty or all NaN
-            y_max = 5
-        else:
-            # Replace NaN with 0 before finding max
-            data_max = int(np.ceil(df.fillna(0).values.max()))
-            y_max = max(5, data_max)
-        
-        self.plot_widget.setYRange(0, y_max)
-        
-        # Create new legend first
-        self.legend = self.plot_widget.addLegend(offset=(10, 10))
-        
-        # Plot data if available
+        # Filter out weekends
         if not df.empty:
+            df = df[df.index.map(lambda x: pd.Timestamp(x).weekday() < 5)]  # 0-4 are Monday-Friday
+            
             x = np.array([pd.Timestamp(date).timestamp() for date in df.index])
             
-            for stage in STAGE_ORDER:
-                color = colors[stage]
-                y_values = df[stage].fillna(0).values  # Replace NaN with 0
-                
-                # Create line plot
-                plot_item = self.plot_widget.plot(
-                    x=x,
-                    y=y_values,
-                    pen=pg.mkPen(color, width=2),
-                    name=stage,
-                    symbol='o',
-                    symbolSize=8,
-                    symbolBrush=color,
-                    symbolPen=color
-                )
-                
-                # Add value labels next to each point
-                for i, (x_val, y_val) in enumerate(zip(x, y_values)):
-                    if y_val > 0:
-                        text = pg.TextItem(
-                            text=str(int(y_val)),
-                            color=color,
-                            anchor=(0, 1)
-                        )
-                        self.plot_widget.addItem(text)
-                        x_offset = (x[-1] - x[0]) * 0.001
-                        text.setPos(x_val + x_offset, y_val)
-        
-        # Set labels
-        y_label = 'Total Number of Jobs' if view_type == 'Cumulative' else 'Number of Jobs'
-        self.plot_widget.setLabel('left', y_label)
-        
-        # Fix for x-axis label
-        plot_item = self.plot_widget.getPlotItem()
-        bottom_axis = plot_item.getAxis('bottom')
-        bottom_axis.enableAutoSIPrefix(False)  # Disable SI prefix notation
-        bottom_axis.setLabel('Date')  # Set label without any units
-        
-        # Set x-axis range
-        self.plot_widget.getPlotItem().setXRange(
-            min(x) - (x[-1] - x[0]) * 0.05,
-            max(x) + (x[-1] - x[0]) * 0.05
-        )
-        
-        # Set x-axis ticks
-        bottom_axis.setTicks([[(timestamp, pd.Timestamp(timestamp, unit='s').strftime('%a %Y-%m-%d')) 
-                            for timestamp in x]])
-        
-        y_axis = self.plot_widget.getAxis('left')
-        if y_max <= 20:
-            step = 1
-        elif y_max <= 50:
-            step = 5
-        elif y_max <= 100:
-            step = 10
-        else:
-            step = 20
-        
-        y_ticks = [(i, str(i)) for i in range(0, y_max + 1, step)]
-        y_axis.setTicks([y_ticks])
-        
-        self.plot_widget.setBackground('black')
+            # Set y-axis range, handling NaN values
+            if df.empty or df.isna().all().all():  # Check if DataFrame is empty or all NaN
+                y_max = 5
+            else:
+                # Replace NaN with 0 before finding max
+                data_max = int(np.ceil(df.fillna(0).values.max()))
+                y_max = max(5, data_max)
+            
+            self.plot_widget.setYRange(0, y_max)
+            
+            # Create new legend first
+            self.legend = self.plot_widget.addLegend(offset=(10, 10))
+            
+            # Plot data if available
+            if not df.empty:
+                for stage in STAGE_ORDER:
+                    color = colors[stage]
+                    y_values = df[stage].fillna(0).values
+                    
+                    plot_item = self.plot_widget.plot(
+                        x=x,
+                        y=y_values,
+                        pen=pg.mkPen(color, width=2),
+                        name=stage,
+                        symbol='o',
+                        symbolSize=8,
+                        symbolBrush=color,
+                        symbolPen=color
+                    )
+                    
+                    # Add value labels next to each point
+                    for i, (x_val, y_val) in enumerate(zip(x, y_values)):
+                        if y_val > 0:
+                            text = pg.TextItem(
+                                text=str(int(y_val)),
+                                color=color,
+                                anchor=(0, 1)
+                            )
+                            self.plot_widget.addItem(text)
+                            x_offset = (x[-1] - x[0]) * 0.001
+                            text.setPos(x_val + x_offset, y_val)
+            
+            # Set labels
+            y_label = 'Total Number of Jobs' if view_type == 'Cumulative' else 'Number of Jobs'
+            self.plot_widget.setLabel('left', y_label)
+            
+            # Fix for x-axis label
+            plot_item = self.plot_widget.getPlotItem()
+            bottom_axis = plot_item.getAxis('bottom')
+            bottom_axis.enableAutoSIPrefix(False)  # Disable SI prefix notation
+            bottom_axis.setLabel('Date')  # Set label without any units
+            
+            # Set x-axis range
+            self.plot_widget.getPlotItem().setXRange(
+                min(x) - (x[-1] - x[0]) * 0.05,
+                max(x) + (x[-1] - x[0]) * 0.05
+            )
+            
+            # Set x-axis ticks
+            bottom_axis.setTicks([[(timestamp, pd.Timestamp(timestamp, unit='s').strftime('%a %Y-%m-%d')) 
+                                for timestamp in x]])
+            
+            y_axis = self.plot_widget.getAxis('left')
+            if y_max <= 20:
+                step = 1
+            elif y_max <= 50:
+                step = 5
+            elif y_max <= 100:
+                step = 10
+            else:
+                step = 20
+            
+            y_ticks = [(i, str(i)) for i in range(0, y_max + 1, step)]
+            y_axis.setTicks([y_ticks])
+            
+            self.plot_widget.setBackground('black')
