@@ -143,14 +143,15 @@ class JiraDataProcessor:
         ]
         
         other_statuses = [
-            'invoiced',
-            'reported',
+            'quotation',
+            'in progress',
+            'open',
             'report',
+            'review',
+            'reported',
+            'invoiced',
             'on hold',
             'cancelled',
-            'open',
-            'in progress',
-            'quotation',
             'other' 
         ]
         
@@ -230,7 +231,7 @@ class JiraDataProcessor:
         
         jql_query = f'project = {project_key} ORDER BY created DESC'
         issues = self.fetch_issues(jql_query)
-        df = self.process_issues(issues)
+        df = self.process_issues(issues)        
         filtered_df = self.filter_issues(df, start_date, end_date, stages)
         
         # Create complete date range
