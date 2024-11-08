@@ -212,9 +212,23 @@ class MainWindow(QMainWindow):
         # Set labels
         y_label = 'Total Number of Jobs' if view_type == 'Cumulative' else 'Number of Jobs'
         self.plot_widget.setLabel('left', y_label)
-        self.plot_widget.setLabel('bottom', 'Date')
         
-        # Set y-axis ticks with appropriate spacing
+        # Fix for x-axis label
+        plot_item = self.plot_widget.getPlotItem()
+        bottom_axis = plot_item.getAxis('bottom')
+        bottom_axis.enableAutoSIPrefix(False)  # Disable SI prefix notation
+        bottom_axis.setLabel('Date')  # Set label without any units
+        
+        # Set x-axis range
+        self.plot_widget.getPlotItem().setXRange(
+            min(x) - (x[-1] - x[0]) * 0.05,
+            max(x) + (x[-1] - x[0]) * 0.05
+        )
+        
+        # Set x-axis ticks
+        bottom_axis.setTicks([[(timestamp, pd.Timestamp(timestamp, unit='s').strftime('%a %Y-%m-%d')) 
+                            for timestamp in x]])
+        
         y_axis = self.plot_widget.getAxis('left')
         if y_max <= 20:
             step = 1
@@ -227,11 +241,5 @@ class MainWindow(QMainWindow):
         
         y_ticks = [(i, str(i)) for i in range(0, y_max + 1, step)]
         y_axis.setTicks([y_ticks])
-        
-        # Set x-axis ticks if data exists
-        if not df.empty:
-            axis = self.plot_widget.getAxis('bottom')
-            axis.setTicks([[(timestamp, pd.Timestamp(timestamp, unit='s').strftime('%a %Y-%m-%d')) 
-                            for timestamp in x]])
         
         self.plot_widget.setBackground('black')
