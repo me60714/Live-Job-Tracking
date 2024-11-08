@@ -10,3 +10,4 @@ jira_issues_for_states.json
 all_jobs.py
 all_jobs.json
 installer.txt
+output/
