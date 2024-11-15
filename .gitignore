@@ -7,9 +7,8 @@ __pycache__/
 find_states.py
 hot_reload.py
 jira_issues_for_states.json
-all_jobs.py
-all_jobs.json
+all_jobs_details.py
+all_jobs_details.json
 installer.txt
 output/
-total_issues.py
-list_all_issues.py
+all_jobs_list.py
