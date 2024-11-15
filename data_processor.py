@@ -1,3 +1,7 @@
+#######################################################################
+# This script processes Jira issues and aggregates data.              #
+#######################################################################
+
 from datetime import datetime, timedelta, timezone
 import pandas as pd
 from typing import Dict, List
@@ -7,6 +11,7 @@ import numpy as np
 import json
 from config import JIRA_URL, JIRA_USERNAME, JIRA_API_TOKEN
 import re
+from rate_limiter import RateLimiter
 
 class JiraDataProcessor:
 
@@ -14,6 +19,7 @@ class JiraDataProcessor:
         self.JIRA_URL = JIRA_URL
         self.JIRA_USERNAME = JIRA_USERNAME
         self.JIRA_API_TOKEN = JIRA_API_TOKEN
+        self.rate_limiter = RateLimiter()
         self.debugged_issues = set()
 
     def fetch_issues(self, jql_query: str) -> List[Dict]:
@@ -35,6 +41,9 @@ class JiraDataProcessor:
         
         while True:
             try:
+                # Add rate limiting
+                self.rate_limiter.wait_if_needed()
+                
                 params = {
                     "jql": jql_query,
                     "maxResults": max_results,
@@ -48,6 +57,13 @@ class JiraDataProcessor:
                     params=params,
                     auth=(self.JIRA_USERNAME, self.JIRA_API_TOKEN)
                 )
+                
+                # Check rate limit headers
+                if 'X-RateLimit-Remaining' in response.headers:
+                    remaining = int(response.headers['X-RateLimit-Remaining'])
+                    if remaining < 10:
+                        print(f"Warning: Only {remaining} requests remaining")
+                
                 response.raise_for_status()
                 
                 data = response.json()
