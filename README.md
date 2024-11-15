@@ -11,12 +11,19 @@ This application provides a real-time visualization of job statuses from JIRA, h
 ## Features
 
 - Real-time data visualization with automatic 3-minute updates
-- Interactive line graph with different colors for each stage
+- Interactive line graph showing job progression through stages:
+  - Open                    # New status
+  - Sample Preparation
+  - Testing
+  - Report                  # New status
+  - Other
 - Date range selection with Monday-Sunday week alignment
-- Stage filtering (Sample Preparation, Testing, Other)
+- Stage filtering
 - Cumulative view of job counts
 - Value labels on data points
 - Dark theme interface
+- API token validation and expiration tracking
+- Rate limiting protection for JIRA API calls
 
 ## Prerequisites
 
@@ -66,10 +73,19 @@ python live_job_tracking.py
 The application uses the following configuration options:
 - Date range: Monday to Sunday week selection
 - Update interval: 3 minutes
-- Stages: Sample Preparation, Testing, Other
+- Stages: 
+  - Open                    # New status
+  - Sample Preparation
+  - Testing
+  - Report                  # New status
+  - Other
+- API token rotation: 90 days
+- Rate limiting: 50 requests per minute
 - Graph colors:
+  - Open: Green            # New color
   - Sample Preparation: Deep Blue
   - Testing: Orange-Red
+  - Report: Purple         # New color
   - Other: Yellow-Orange
 
 ## Project Structure
@@ -78,6 +94,8 @@ Live-Job-Tracking/
 ├── data_processor.py    #JIRA data processing  
 ├── gui.py               #PyQt5 user interface  
 ├── config.py            #Configuration (not in repo)  
+├── api_checker.py       #API token validation   
+├── rate_limiter.py      #Rate limit protection  
 └── requirements.txt     #Package dependencies  
 
 ## Contributing
@@ -95,8 +113,8 @@ Live-Job-Tracking/
 
 ## Version
 
-- Current Version: 1.0.0
-- Last Updated: 2024-11-03
+- Current Version: 1.1.0
+- Last Updated: 2024-11-15
 
 ## Authors
 
@@ -125,3 +143,17 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+## Version History
+
+### Version 1.1.0 (2024-11-15)
+- Added API token validation and expiration tracking
+- Implemented rate limiting for JIRA API calls
+- Enhanced error handling for API requests
+- Added new status categories: 'Open' and 'Report'
+- Updated visualization to support five distinct stages
+
+### Version 1.0.0 (2024-11-03)
+- Initial release
+- Basic job tracking functionality
+- Real-time visualization features
