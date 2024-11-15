@@ -1,3 +1,7 @@
+########################################################################
+# This script creates a GUI for the job tracking application.          #
+########################################################################
+
 from PyQt5.QtWidgets import QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QPushButton, QComboBox, QDateEdit, QLabel
 from PyQt5.QtCore import QTimer, QDate
 import pyqtgraph as pg
