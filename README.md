@@ -74,19 +74,33 @@ The application uses the following configuration options:
 - Date range: Monday to Sunday week selection
 - Update interval: 3 minutes
 - Stages: 
-  - Open                    # New status
+  - Open
   - Sample Preparation
   - Testing
-  - Report                  # New status
+  - Report
   - Other
-- API token rotation: 90 days
-- Rate limiting: 50 requests per minute
+- API token management: 90-day rotation recommended (best practice for security)
+- Rate limiting: Implemented to protect against API throttling
 - Graph colors:
-  - Open: Green            # New color
+  - Open: Green
   - Sample Preparation: Deep Blue
   - Testing: Orange-Red
-  - Report: Purple         # New color
+  - Report: Purple
   - Other: Yellow-Orange
+
+## Security Best Practices
+
+### API Token Management
+While Atlassian API tokens don't have a built-in expiration date, this application implements a 90-day token rotation policy as a security best practice. This helps:
+- Minimize the impact of potential token compromise
+- Ensure regular security reviews
+- Maintain good security hygiene
+- Track and manage token usage
+
+The application will notify you when your token approaches the 90-day mark, allowing you to:
+1. Generate a new token in your Atlassian account
+2. Update the token in your configuration
+3. Ensure continuous, secure operation
 
 ## Project Structure
 Live-Job-Tracking/  
