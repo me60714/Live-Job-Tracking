@@ -86,6 +86,18 @@ class MainWindow(QMainWindow):
         stage_layout.addWidget(self.stage_filter)
         filter_layout.addLayout(stage_layout)
         
+        # Location filter
+        location_layout = QHBoxLayout()
+        location_layout.setSpacing(5)
+        location_label = QLabel("Location:")
+        location_label.setFixedWidth(70)
+        self.location_filter = QComboBox(self)
+        self.location_filter.addItems(['All', 'Toronto', 'Montreal', 'Edmonton'])
+        self.location_filter.currentTextChanged.connect(self.update_data)
+        location_layout.addWidget(location_label)
+        location_layout.addWidget(self.location_filter)
+        filter_layout.addLayout(location_layout)
+        
         # Add spacing before refresh button
         filter_layout.addSpacing(20)
         
@@ -156,12 +168,23 @@ class MainWindow(QMainWindow):
     def update_data(self):
         stage = self.stage_filter.currentText()
         stages = [stage] if stage != 'All' else None
+        
+        location = self.location_filter.currentText()
+        locations = [location] if location != 'All' else None
+        
         view_type = 'Cumulative'
-
+        
         start_date = self.start_date.date().toString("yyyy-MM-dd")
         end_date = self.end_date.date().toString("yyyy-MM-dd")
-
-        data = self.data_processor.get_data("MTEST", start_date, end_date, stages, view_type)
+        
+        data = self.data_processor.get_data(
+            "MTEST", 
+            start_date, 
+            end_date, 
+            stages, 
+            view_type,
+            locations
+        )
         self.update_plot(data, view_type)
 
     def update_plot(self, data, view_type):

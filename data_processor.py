@@ -137,14 +137,23 @@ class JiraDataProcessor:
                                 'to_status': item['toString']
                             })
             
-            # Add initial status
+            # Determine location based on labels
+            labels = [label.upper() for label in issue['fields'].get('labels', [])]
+            if 'YEG' in labels:
+                location = 'Edmonton'
+            elif 'YUL' in labels:
+                location = 'Montreal'
+            else:
+                location = 'Toronto'
+            
             data = {
                 'key': issue['key'],
                 'job': job_number,
                 'status': current_status,
                 'created_date': created_date,
                 'stage': self.determine_stage(current_status),
-                'status_changes': status_changes
+                'status_changes': status_changes,
+                'location': location
             }
             processed_data.append(data)
 
@@ -180,13 +189,13 @@ class JiraDataProcessor:
         
         # Print header
         print("\nProcessing issues:")
-        print(f"{'Key':<12} {'Job Number':<35} {'Status':<15} {'Created':<16} {'Stage':<15}")
-        print("-" * 100)
+        print(f"{'Key':<12} {'Job Number':<35} {'Status':<15} {'Location':<12} {'Created':<16} {'Stage':<15}")
+        print("-" * 105)
         
         # Print sorted rows
         for _, row in df.iterrows():
             formatted_date = row['created_date'].strftime('%Y-%m-%d %H:%M')
-            print(f"{row['key']:<12} {row['job']:<35} {row['status']:<15} {formatted_date:<16} {row['stage']:<15}")
+            print(f"{row['key']:<12} {row['job']:<35} {row['status']:<15} {row['location']:<12} {formatted_date:<16} {row['stage']:<15}")
 
         # Print invalid jobs warning if any
         if invalid_jobs:
@@ -302,16 +311,24 @@ class JiraDataProcessor:
         # Return only the last 7 days of data
         return running_avg.tail(7)
 
-    def get_data(self, project_key: str, start_date: str = None, end_date: str = None, stages: List[str] = None, view_type: str = 'Daily Count') -> Dict:
+    def get_data(self, project_key: str, start_date: str = None, end_date: str = None, 
+                 stages: List[str] = None, view_type: str = 'Daily Count', 
+                 locations: List[str] = None) -> Dict:
         print(f"\nFetching data with parameters:")
         print(f"Project: {project_key}")
         print(f"Date range: {start_date} to {end_date}")
         print(f"Stages: {stages}")
+        print(f"Locations: {locations}")
         print(f"View type: {view_type}")
         
         jql_query = f'project = {project_key} ORDER BY created DESC'
         issues = self.fetch_issues(jql_query)
-        df = self.process_issues(issues)        
+        df = self.process_issues(issues)
+        
+        # Filter by location if specified
+        if locations:
+            df = df[df['location'].isin(locations)]
+        
         filtered_df = self.filter_issues(df, start_date, end_date, stages)
         
         # Create complete date range
