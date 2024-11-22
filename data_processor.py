@@ -351,20 +351,35 @@ class JiraDataProcessor:
             
             if not numbers:
                 return 0
-            
-            # Handle different formats
+                
+            # Handle arrow notation
+            if '-->' in job_number:
+                # Try to get both numbers
+                first_num = re.search(r'\((\d+)\)', job_number)
+                last_num = re.search(r'-->[^(]*\((\d+)\)', job_number)
+                
+                # If we have both valid numbers, use the last one
+                if first_num and last_num:
+                    try:
+                        return int(last_num.group(1))
+                    except ValueError:
+                        return int(first_num.group(1))
+                # If only first number is valid, use it
+                elif first_num:
+                    return int(first_num.group(1))
+                return 0
+                
+            # Handle other formats
             if '-' in numbers[0]:  # Format: (9-3)
                 a, b = map(int, numbers[0].split('-'))
                 return abs(a - b)
             elif '+' in numbers[0]:  # Format: (3+3)
                 return sum(map(int, numbers[0].split('+')))
-            elif '-->' in job_number:  # Format: (15) --> (30)
-                return int(numbers[-1])  # Use last number
             else:
                 # Extract first number if multiple numbers exist
                 match = re.search(r'\d+', numbers[0])
                 return int(match.group()) if match else 0
-            
+                
         except Exception as e:
             print(f"Error extracting test number from {job_number}: {e}")
             return 0

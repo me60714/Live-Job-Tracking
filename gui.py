@@ -80,7 +80,7 @@ class MainWindow(QMainWindow):
         stage_label = QLabel("Stage:")
         stage_label.setFixedWidth(50)
         self.stage_filter = QComboBox(self)
-        self.stage_filter.addItems(['All','open', 'Sample Preparation', 'Testing', 'Report'])
+        self.stage_filter.addItems(['All', 'Open', 'Sample Preparation', 'Testing', 'Report'])
         self.stage_filter.currentTextChanged.connect(self.update_data)
         stage_layout.addWidget(stage_label)
         stage_layout.addWidget(self.stage_filter)
@@ -210,13 +210,17 @@ class MainWindow(QMainWindow):
         self.plot_widget.getPlotItem().getViewBox().setLimits(xMin=None, xMax=None, yMin=0, yMax=None)
         
         # Define fixed order of stages and their colors
-        STAGE_ORDER = ['Open','Sample Preparation', 'Testing', 'Report']
+        ALL_STAGES = ['Open', 'Sample Preparation', 'Testing', 'Report']
         colors = {
-            'Open': pg.mkColor('#FFBB00'),               #yellow-orange
-            'Sample Preparation': pg.mkColor('#375E97'), #deep blue
-            'Testing': pg.mkColor('#FB6542'),            #orange-red
-            'Report': pg.mkColor('#008000')             #green
+            'Open': pg.mkColor('#FFBB00'),
+            'Sample Preparation': pg.mkColor('#375E97'),
+            'Testing': pg.mkColor('#FB6542'),
+            'Report': pg.mkColor('#008000')
         }
+        
+        # Only plot selected stage if not 'All'
+        selected_stage = self.stage_filter.currentText()
+        stages_to_plot = [selected_stage] if selected_stage != 'All' else ALL_STAGES
         
         # Remove old legend if it exists
         if hasattr(self, 'legend'):
@@ -246,32 +250,33 @@ class MainWindow(QMainWindow):
             
             # Plot data if available
             if not df.empty:
-                for stage in STAGE_ORDER:
-                    color = colors[stage]
-                    y_values = df[stage].fillna(0).values
-                    
-                    plot_item = self.plot_widget.plot(
-                        x=x,
-                        y=y_values,
-                        pen=pg.mkPen(color, width=2),
-                        name=stage,
-                        symbol='o',
-                        symbolSize=8,
-                        symbolBrush=color,
-                        symbolPen=color
-                    )
-                    
-                    # Add value labels next to each point
-                    for i, (x_val, y_val) in enumerate(zip(x, y_values)):
-                        if y_val > 0:
-                            text = pg.TextItem(
-                                text=str(int(y_val)),
-                                color=color,
-                                anchor=(0, 1)
-                            )
-                            self.plot_widget.addItem(text)
-                            x_offset = (x[-1] - x[0]) * 0.001
-                            text.setPos(x_val + x_offset, y_val)
+                for stage in stages_to_plot:  # Only plot selected stages
+                    if stage in colors:  # Make sure we have a color for this stage
+                        color = colors[stage]
+                        y_values = df[stage].fillna(0).values
+                        
+                        plot_item = self.plot_widget.plot(
+                            x=x,
+                            y=y_values,
+                            pen=pg.mkPen(color, width=2),
+                            name=stage,
+                            symbol='o',
+                            symbolSize=8,
+                            symbolBrush=color,
+                            symbolPen=color
+                        )
+                        
+                        # Add value labels next to each point
+                        for i, (x_val, y_val) in enumerate(zip(x, y_values)):
+                            if y_val > 0:
+                                text = pg.TextItem(
+                                    text=str(int(y_val)),
+                                    color=color,
+                                    anchor=(0, 1)
+                                )
+                                self.plot_widget.addItem(text)
+                                x_offset = (x[-1] - x[0]) * 0.001
+                                text.setPos(x_val + x_offset, y_val)
             
             # Update y-axis label based on unit
             y_label = f'Total {"Test" if unit == "Test Number" else "Job"} Numbers'
