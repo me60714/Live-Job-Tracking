@@ -98,6 +98,18 @@ class MainWindow(QMainWindow):
         location_layout.addWidget(self.location_filter)
         filter_layout.addLayout(location_layout)
         
+        # Unit filter
+        unit_layout = QHBoxLayout()
+        unit_layout.setSpacing(5)
+        unit_label = QLabel("Unit:")
+        unit_label.setFixedWidth(50)
+        self.unit_filter = QComboBox(self)
+        self.unit_filter.addItems(['Job Number', 'Test Number'])
+        self.unit_filter.currentTextChanged.connect(self.update_data)
+        unit_layout.addWidget(unit_label)
+        unit_layout.addWidget(self.unit_filter)
+        filter_layout.addLayout(unit_layout)
+        
         # Add spacing before refresh button
         filter_layout.addSpacing(20)
         
@@ -172,6 +184,7 @@ class MainWindow(QMainWindow):
         location = self.location_filter.currentText()
         locations = [location] if location != 'All' else None
         
+        unit = self.unit_filter.currentText()
         view_type = 'Cumulative'
         
         start_date = self.start_date.date().toString("yyyy-MM-dd")
@@ -183,11 +196,12 @@ class MainWindow(QMainWindow):
             end_date, 
             stages, 
             view_type,
-            locations
+            locations,
+            unit
         )
-        self.update_plot(data, view_type)
+        self.update_plot(data, view_type, unit)
 
-    def update_plot(self, data, view_type):
+    def update_plot(self, data, view_type, unit):
         self.plot_widget.clear()
         
         # Disable mouse interactions
@@ -259,8 +273,8 @@ class MainWindow(QMainWindow):
                             x_offset = (x[-1] - x[0]) * 0.001
                             text.setPos(x_val + x_offset, y_val)
             
-            # Set labels
-            y_label = 'Total Job\'s numbers' if view_type == 'Cumulative' else 'Number of Jobs'
+            # Update y-axis label based on unit
+            y_label = f'Total {"Test" if unit == "Test Number" else "Job"} Numbers'
             self.plot_widget.setLabel('left', y_label)
             
             # Fix for x-axis label

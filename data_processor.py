@@ -148,7 +148,7 @@ class JiraDataProcessor:
             
             data = {
                 'key': issue['key'],
-                'job': job_number,
+                'job_number': job_number,
                 'status': current_status,
                 'created_date': created_date,
                 'stage': self.determine_stage(current_status),
@@ -160,7 +160,7 @@ class JiraDataProcessor:
         # Convert to DataFrame for easier sorting
         df = pd.DataFrame(processed_data)
         
-        # Create status priority mapping based on the order in other_statuses
+        
         other_status_priority = {status.lower(): idx for idx, status in enumerate([
             'quotation',
             'in progress',
@@ -195,7 +195,7 @@ class JiraDataProcessor:
         # Print sorted rows
         for _, row in df.iterrows():
             formatted_date = row['created_date'].strftime('%Y-%m-%d %H:%M')
-            print(f"{row['key']:<12} {row['job']:<35} {row['status']:<15} {row['location']:<12} {formatted_date:<16} {row['stage']:<15}")
+            print(f"{row['key']:<12} {row['job_number']:<35} {row['status']:<15} {row['location']:<12} {formatted_date:<16} {row['stage']:<15}")
 
         # Print invalid jobs warning if any
         if invalid_jobs:
@@ -313,13 +313,14 @@ class JiraDataProcessor:
 
     def get_data(self, project_key: str, start_date: str = None, end_date: str = None, 
                  stages: List[str] = None, view_type: str = 'Daily Count', 
-                 locations: List[str] = None) -> Dict:
+                 locations: List[str] = None, unit: str = 'Job Number') -> Dict:
         print(f"\nFetching data with parameters:")
         print(f"Project: {project_key}")
         print(f"Date range: {start_date} to {end_date}")
         print(f"Stages: {stages}")
         print(f"Locations: {locations}")
         print(f"View type: {view_type}")
+        print(f"Unit: {unit}")
         
         jql_query = f'project = {project_key} ORDER BY created DESC'
         issues = self.fetch_issues(jql_query)
@@ -333,7 +334,7 @@ class JiraDataProcessor:
         
         # Create complete date range
         date_range = pd.date_range(start=start_date, end=end_date)
-        aggregated_data = self.aggregate_data(filtered_df, view_type, date_range)
+        aggregated_data = self.aggregate_data(filtered_df, view_type, date_range, unit)
         
         return {
             'df': filtered_df,
@@ -342,8 +343,35 @@ class JiraDataProcessor:
             'aggregated_data': aggregated_data
         }
 
-    def aggregate_data(self, df: pd.DataFrame, view_type: str = 'Daily Count', date_range: pd.DatetimeIndex = None) -> pd.DataFrame:
-        """Aggregate data based on view type."""
+    def extract_test_number(self, job_number: str) -> int:
+        """Extract test number from job number string."""
+        try:
+            # Find all numbers within parentheses
+            numbers = re.findall(r'\(([^)]+)\)', job_number)
+            
+            if not numbers:
+                return 0
+            
+            # Handle different formats
+            if '-' in numbers[0]:  # Format: (9-3)
+                a, b = map(int, numbers[0].split('-'))
+                return abs(a - b)
+            elif '+' in numbers[0]:  # Format: (3+3)
+                return sum(map(int, numbers[0].split('+')))
+            elif '-->' in job_number:  # Format: (15) --> (30)
+                return int(numbers[-1])  # Use last number
+            else:
+                # Extract first number if multiple numbers exist
+                match = re.search(r'\d+', numbers[0])
+                return int(match.group()) if match else 0
+            
+        except Exception as e:
+            print(f"Error extracting test number from {job_number}: {e}")
+            return 0
+
+    def aggregate_data(self, df: pd.DataFrame, view_type: str = 'Daily Count', 
+                      date_range: pd.DatetimeIndex = None, unit: str = 'Job Number') -> pd.DataFrame:
+        """Aggregate data based on view type and unit."""
         print("\nAggregating data:")
         print(f"Input DataFrame shape: {df.shape}")
         
@@ -356,37 +384,34 @@ class JiraDataProcessor:
             if not df.empty:
                 # Create a snapshot of issue states for each date
                 for date in dates:
-                    # Reset counts for this date
                     stage_counts = {stage: 0 for stage in STAGE_ORDER}
                     
                     for _, issue in df.iterrows():
-                        # Skip if issue wasn't created yet
                         if issue['created_date'].date() > date:
                             continue
                         
-                        # Start with the initial stage
                         current_stage = issue['stage']
-                        
-                        # Check status changes up to this date
                         relevant_changes = [
                             change for change in issue['status_changes']
                             if change['date'].date() <= date
                         ]
                         
                         if relevant_changes:
-                            # Get the most recent change
                             last_change = sorted(relevant_changes, key=lambda x: x['date'])[-1]
                             current_stage = self.determine_stage(last_change['to_status'])
                         
-                        # Count this issue in its current stage
-                        stage_counts[current_stage] += 1
+                        # Count based on selected unit
+                        if unit == 'Test Number':
+                            count = self.extract_test_number(issue['job_number'])
+                        else:
+                            count = 1
+                            
+                        stage_counts[current_stage] += count
                     
-                    # Update daily counts with the snapshot
                     for stage in STAGE_ORDER:
                         daily_counts.loc[date, stage] = stage_counts[stage]
                 
                 if view_type != 'Cumulative':
-                    # For non-cumulative view, subtract previous day's count
                     daily_counts = daily_counts - daily_counts.shift(1).fillna(0)
         
         return daily_counts
