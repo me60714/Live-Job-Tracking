@@ -25,8 +25,6 @@ def check_api_token(url, username, token):
             days_left = 90 - days_old
             
             print("API Token is valid")
-            print(f"Token age: {days_old} days")
-            print(f"Days until rotation recommended: {days_left}")
             
             if days_left <= 1:
                 print("\nWARNING: Token rotation recommended soon!")

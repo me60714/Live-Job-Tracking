@@ -39,7 +39,6 @@ class JiraDataProcessor:
         # Only filter for parent issues and label including CIPP
         base_query = jql_query.replace(' ORDER BY created DESC', '')
         jql_query = f'{base_query} AND parent IS EMPTY AND labels in (CIPP) ORDER BY created DESC'
-        print(f"JQL Query: {jql_query}")
         
         all_issues = []
         start_at = 0
@@ -75,9 +74,6 @@ class JiraDataProcessor:
                 data = response.json()
                 issues = data['issues']
                 
-                print(f"Total available issues: {data['total']}")
-                print(f"Fetched {len(issues)} issues in this request")
-                
                 if not issues:
                     break
                     
@@ -91,7 +87,6 @@ class JiraDataProcessor:
                 print(f"Error fetching data: {e}")
                 break
         
-        print(f"Number of issues fetched: {len(all_issues)}")
         return all_issues
 
     def process_issues(self, issues: List[Dict]) -> pd.DataFrame:
@@ -277,7 +272,9 @@ class JiraDataProcessor:
         print(f"Number of issues after filtering: {len(filtered_df)}")
         
         if not filtered_df.empty:
-            print(f"Date range of data: {filtered_df['created_date'].min()} to {filtered_df['created_date'].max()}")
+            min_date = filtered_df['created_date'].min().strftime('%Y-%m-%d %H:%M')
+            max_date = filtered_df['created_date'].max().strftime('%Y-%m-%d %H:%M')
+            print(f"Date range of data: {min_date} to {max_date}")
         
         return filtered_df
 
@@ -311,13 +308,8 @@ class JiraDataProcessor:
     def get_data(self, project_key: str, start_date: str = None, end_date: str = None, 
                  stages: List[str] = None, view_type: str = 'Daily Count', 
                  locations: List[str] = None, unit: str = 'Job Number') -> Dict:
-        print(f"\nFetching data with parameters:")
-        print(f"Project: {project_key}")
-        print(f"Date range: {start_date} to {end_date}")
-        print(f"Stages: {stages}")
-        print(f"Locations: {locations}")
-        print(f"View type: {view_type}")
-        print(f"Unit: {unit}")
+
+        print(f"Fetching data for project {project_key}")
         
         jql_query = f'project = {project_key} ORDER BY created DESC'
         issues = self.fetch_issues(jql_query)
