@@ -260,7 +260,7 @@ class MainWindow(QMainWindow):
                             text.setPos(x_val + x_offset, y_val)
             
             # Set labels
-            y_label = 'Total Number of Jobs' if view_type == 'Cumulative' else 'Number of Jobs'
+            y_label = 'Total Job\'s numbers' if view_type == 'Cumulative' else 'Number of Jobs'
             self.plot_widget.setLabel('left', y_label)
             
             # Fix for x-axis label
