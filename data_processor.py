@@ -12,7 +12,7 @@ import json
 from config import JIRA_URL, JIRA_USERNAME, JIRA_API_TOKEN
 import re
 from rate_limiter import RateLimiter
-from api_checker import check_api_token
+from api_manager import get_api_manager
 
 class JiraDataProcessor:
 
@@ -21,8 +21,8 @@ class JiraDataProcessor:
         self.JIRA_USERNAME = JIRA_USERNAME
         self.JIRA_API_TOKEN = JIRA_API_TOKEN
         
-        # Check API token before proceeding
-        if not check_api_token(self.JIRA_URL, self.JIRA_USERNAME, self.JIRA_API_TOKEN):
+        self.api_manager = get_api_manager()
+        if not self.api_manager.check_token():
             raise ValueError("Invalid or expired API token")
             
         self.rate_limiter = RateLimiter()
