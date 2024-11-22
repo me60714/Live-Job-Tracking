@@ -16,8 +16,8 @@ class MainWindow(QMainWindow):
         self.update_data()
 
     def init_ui(self):
-        self.setWindowTitle('Live Job Tracking')
-        self.setGeometry(100, 100, 1000, 600)
+        self.setWindowTitle('Live Jira Job Tracking')
+        self.setGeometry(100, 100, 1000, 700)
 
         # Main layout
         main_layout = QVBoxLayout()
@@ -242,6 +242,7 @@ class MainWindow(QMainWindow):
                 # Replace NaN with 0 before finding max
                 data_max = int(np.ceil(df.fillna(0).values.max()))
                 y_max = max(5, data_max)
+                y_max = int(y_max * 1.2) #add 20% buffer to not overlap with legend
             
             self.plot_widget.setYRange(0, y_max)
             
