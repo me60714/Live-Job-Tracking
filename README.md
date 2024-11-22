@@ -2,14 +2,21 @@
 
 # Live Job Tracking
 
-Real-time JIRA workflow visualization tool with automated updates and filtering capabilities.
+Real-time JIRA workflow visualization tool for tracking job progress.
 
 ## Features
 
-- Real-time data visualization with 3-minute auto-updates
-- Interactive line graph with dark theme
-- Filtering by date, stage, location, and unit type
-- Automated API token management with expiration warnings
+- Real-time visualization with 3-minute auto-updates
+- Interactive dark theme graph
+- Multi-filter support:
+  - Date range
+  - Job stage
+  - Location (YEG/YUL/YYZ)
+  - Unit type (Job/Test Number)
+- API Management:
+  - Automatic token validation
+  - 7-day expiration warnings
+  - Forced updates for expired tokens
 - Rate limiting protection for API calls
 
 ## Prerequisites
@@ -17,16 +24,16 @@ Real-time JIRA workflow visualization tool with automated updates and filtering 
 - Python 3.8+
 - JIRA account with API access
 
-## Quick Start
+## Setup
 
-1. Clone and install:
+1. Install:
 ```bash
 git clone https://github.com/me60714/Live-Job-Tracking.git
 cd Live-Job-Tracking
 pip install -r requirements.txt
 ```
 
-2. Configure JIRA credentials in `config.py`:
+2. Configure `config.py`:
 ```python
 JIRA_URL = "your_jira_url"
 JIRA_USERNAME = "your_username"
@@ -39,33 +46,27 @@ TOKEN_CREATED_DATE = "YYYY-MM-DD"
 python live_job_tracking.py
 ```
 
-## API Token Management
-
-- Automatic validation on startup
-- 7-day expiration warnings
-- Manual update utility:
+Note: To manually update the API token when needed:
 ```bash
 python api_manager.py
 ```
 
-## Version History
+## Versions
 
-### Version 1.1.1 (2024-11-22)
+### 1.1.1 (2024-11-22)
 - Added unit and location filtering
-- Enhanced API token management and security
+- Enhanced API token management
 - Improved visualization scaling
 
-### Version 1.1.0 (2024-11-15)
-- Added token validation and rate limiting
-- New status categories support
+### 1.1.0 (2024-11-15)
+- Added API security features
+- New status categories
 
-### Version 1.0.0 (2024-11-03)
+### 1.0.0 (2024-11-03)
 - Initial release
 
 ## Author
 
 Wayne Kao - [GitHub](https://github.com/me60714)
-
-## License
 
 MIT License - Copyright (c) 2024 Wayne Kao

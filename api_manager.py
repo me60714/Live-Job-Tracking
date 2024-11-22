@@ -25,6 +25,7 @@ class APIManager:
             
             if response.status_code == 401:
                 print("API Token is invalid or expired")
+                self.update_token()  # Force update if invalid
                 return False
                 
             elif response.status_code == 200:
@@ -38,7 +39,8 @@ class APIManager:
                 # Auto-prompt for token update if near expiration
                 if days_left <= 7:  # Warning when 7 days or less remaining
                     print(f"\nWARNING: Token expires in {days_left} days!")
-                    if days_left <= 1:  # Auto-prompt when 1 day or less
+                    if days_left <= 1:  # Force update when 1 day or less
+                        print("\nToken expiring very soon. Update required.")
                         self.update_token()
                         return False
                 
