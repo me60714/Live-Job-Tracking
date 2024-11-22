@@ -251,8 +251,8 @@ class JiraDataProcessor:
         else:
             return 'Other'
 
-    def filter_issues(self, df: pd.DataFrame, start_date: str = None, end_date: str = None, stages: List[str] = None) -> pd.DataFrame:
-        """Filter issues based on date range and stages."""
+    def filter_issues(self, df: pd.DataFrame, start_date: str = None, end_date: str = None) -> pd.DataFrame:
+        """Filter issues based on date range."""
         print("\nFiltering data:")
         
         if start_date:
@@ -273,9 +273,6 @@ class JiraDataProcessor:
             filtered_df = filtered_df[
                 (filtered_df['created_date'] <= end_date)
             ]
-        
-        if stages:
-            filtered_df = filtered_df[filtered_df['stage'].isin(stages)]
         
         print(f"Number of issues after filtering: {len(filtered_df)}")
         
@@ -330,11 +327,11 @@ class JiraDataProcessor:
         if locations:
             df = df[df['location'].isin(locations)]
         
-        filtered_df = self.filter_issues(df, start_date, end_date, stages)
+        filtered_df = self.filter_issues(df, start_date, end_date)
         
         # Create complete date range
         date_range = pd.date_range(start=start_date, end=end_date)
-        aggregated_data = self.aggregate_data(filtered_df, view_type, date_range, unit)
+        aggregated_data = self.aggregate_data(filtered_df, view_type, date_range, unit, stages)
         
         return {
             'df': filtered_df,
@@ -385,26 +382,28 @@ class JiraDataProcessor:
             return 0
 
     def aggregate_data(self, df: pd.DataFrame, view_type: str = 'Daily Count', 
-                      date_range: pd.DatetimeIndex = None, unit: str = 'Job Number') -> pd.DataFrame:
+                      date_range: pd.DatetimeIndex = None, unit: str = 'Job Number',
+                      stages: List[str] = None) -> pd.DataFrame:
         """Aggregate data based on view type and unit."""
         print("\nAggregating data:")
         print(f"Input DataFrame shape: {df.shape}")
         
-        STAGE_ORDER = ['Open', 'Sample Preparation', 'Testing', 'Report', 'Other']
+        STAGE_ORDER = ['Open', 'Sample Preparation', 'Testing', 'Report']
+        stages_to_show = stages if stages else STAGE_ORDER
         
         if date_range is not None:
             dates = [d.date() for d in date_range]
-            daily_counts = pd.DataFrame(0, index=dates, columns=STAGE_ORDER)
+            daily_counts = pd.DataFrame(0, index=dates, columns=stages_to_show)
             
             if not df.empty:
-                # Create a snapshot of issue states for each date
                 for date in dates:
-                    stage_counts = {stage: 0 for stage in STAGE_ORDER}
+                    stage_counts = {stage: 0 for stage in stages_to_show}
                     
                     for _, issue in df.iterrows():
                         if issue['created_date'].date() > date:
                             continue
                         
+                        # Determine the stage of the issue on this date
                         current_stage = issue['stage']
                         relevant_changes = [
                             change for change in issue['status_changes']
@@ -415,15 +414,15 @@ class JiraDataProcessor:
                             last_change = sorted(relevant_changes, key=lambda x: x['date'])[-1]
                             current_stage = self.determine_stage(last_change['to_status'])
                         
-                        # Count based on selected unit
-                        if unit == 'Test Number':
-                            count = self.extract_test_number(issue['job_number'])
-                        else:
-                            count = 1
-                            
-                        stage_counts[current_stage] += count
+                        # Only count if we're showing all stages or this is the selected stage
+                        if current_stage in stages_to_show:
+                            if unit == 'Test Number':
+                                count = self.extract_test_number(issue['job_number'])
+                            else:
+                                count = 1
+                            stage_counts[current_stage] += count
                     
-                    for stage in STAGE_ORDER:
+                    for stage in stages_to_show:
                         daily_counts.loc[date, stage] = stage_counts[stage]
                 
                 if view_type != 'Cumulative':
