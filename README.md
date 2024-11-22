@@ -2,105 +2,70 @@
 
 # Live Job Tracking
 
-An automatic live job tracking application that visualizes JIRA workflow data in real-time.
+Real-time JIRA workflow visualization tool with automated updates and filtering capabilities.
 
 ## Features
 
-### Core Functionality
-- Real-time JIRA data visualization with 3-minute auto-updates
-- Cumulative view of job progression through workflow stages
-- Manual refresh option
-
-### Visualization
-- Interactive line graph with value labels, dark theme, and dynamic scaling
-- Stage-specific color coding for better readability
-
-### Filtering Options
-- Date range selection (Monday-Friday work week)
-- Stage filtering (Open, Sample Preparation, Testing, Report)
-- Location filtering (Toronto, Montreal, Edmonton)
-- Unit display options (Job Numbers/Test Numbers)
-
-### Security & Performance
-- API token validation with 90-day rotation policy
-- Rate limiting protection for JIRA API calls
+- Real-time data visualization with 3-minute auto-updates
+- Interactive line graph with dark theme
+- Filtering by date, stage, location, and unit type
+- Automated API token management with expiration warnings
+- Rate limiting protection for API calls
 
 ## Prerequisites
 
-- Python 3.8 or higher
+- Python 3.8+
 - JIRA account with API access
-- Required Python packages (see requirements.txt)
 
-## Installation
+## Quick Start
 
-1. Clone the repository:  
+1. Clone and install:
 ```bash
 git clone https://github.com/me60714/Live-Job-Tracking.git
 cd Live-Job-Tracking
-```
-
-2. Install required packages:
-```bash
 pip install -r requirements.txt
 ```
 
-3. Create a `config.py` file with your JIRA credentials:
+2. Configure JIRA credentials in `config.py`:
 ```python
 JIRA_URL = "your_jira_url"
 JIRA_USERNAME = "your_username"
 JIRA_API_TOKEN = "your_api_token"
+TOKEN_CREATED_DATE = "YYYY-MM-DD"
 ```
 
-## Configuration
-
-### Display Settings
-- Work week: Monday-Friday
-- Update interval: 3 minutes
-
-### Visualization Colors
-- Open: Yellow (#FFBB00)
-- Sample Preparation: Deep Blue (#375E97)
-- Testing: Orange-Red (#FB6542)
-- Report: Green (#008000)
-
-### Locations
-- Toronto (default)
-- Montreal
-- Edmonton
-
-## Project Structure
+3. Run the application:
+```bash
+python live_job_tracking.py
 ```
-Live-Job-Tracking/  
-├── live_job_tracking.py #Main entry point  
-├── data_processor.py    #JIRA data processing  
-├── gui.py              #PyQt5 user interface  
-├── config.py           #Configuration (not in repo)  
-├── api_checker.py      #API token validation   
-├── rate_limiter.py     #Rate limit protection  
-└── requirements.txt    #Package dependencies  
+
+## API Token Management
+
+- Automatic validation on startup
+- 7-day expiration warnings
+- Manual update utility:
+```bash
+python api_manager.py
 ```
 
 ## Version History
 
 ### Version 1.1.1 (2024-11-22)
-- Better y-axis scaling
-- Added unit selection filter (Job Number/Test Number)
-- Added location filtering
-- Enhanced status change history tracking
+- Added unit and location filtering
+- Enhanced API token management and security
+- Improved visualization scaling
 
 ### Version 1.1.0 (2024-11-15)
-- Added API token validation and rate limiting
-- Added new status categories and visualization support
+- Added token validation and rate limiting
+- New status categories support
 
 ### Version 1.0.0 (2024-11-03)
-- Initial release with basic job tracking functionality
+- Initial release
 
-## Authors
+## Author
 
-- Wayne Kao - [GitHub](https://github.com/me60714)
+Wayne Kao - [GitHub](https://github.com/me60714)
 
 ## License
 
 MIT License - Copyright (c) 2024 Wayne Kao
-
-[Full license text](https://opensource.org/licenses/MIT)
