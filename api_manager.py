@@ -37,7 +37,7 @@ class APIManager:
                 print("API Token is valid")
                 
                 # Auto-prompt for token update if near expiration
-                # warning when 7 days or less remaining, force update when 1 day or less
+                # warning when 7 days, force update when 1 day or less
                 if days_left <= 7:
                     print(f"\nWARNING: Token expires in {days_left} days!")
                     if days_left <= 1:
