@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 import logging
 
 class RateLimiter:
-    def __init__(self, requests_per_minute=50, buffer_percentage=0.1):
+    def __init__(self, requests_per_minute=50, buffer_percentage=0.1): # 50 requests per minute, 10% buffer
         self.requests_per_minute = requests_per_minute
         self.buffer = int(requests_per_minute * buffer_percentage)  # Safety buffer
         self.requests = []
