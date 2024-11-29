@@ -34,7 +34,7 @@ class MainWindow(QMainWindow):
         
         # Get this week's Monday
         this_monday = current_date.addDays(-days_since_monday)
-        this_sunday = this_monday.addDays(6)  # Sunday is 6 days after Monday
+        this_sunday = this_monday.addDays(6)
         
         # Start date section
         start_date_layout = QHBoxLayout()
@@ -49,7 +49,7 @@ class MainWindow(QMainWindow):
         start_date_layout.addWidget(self.start_date)
         date_layout.addLayout(start_date_layout)
         
-        # Add spacing between start and end date
+        
         date_layout.addSpacing(30)
         
         # End date section
@@ -229,7 +229,7 @@ class MainWindow(QMainWindow):
         
         # Filter out weekends
         if not df.empty:
-            df = df[df.index.map(lambda x: pd.Timestamp(x).weekday() < 5)]  # 0-4 are Monday-Friday
+            df = df[df.index.map(lambda x: pd.Timestamp(x).weekday() < 5)]  # 0-4 -> Mon-Fri
             
             x = np.array([pd.Timestamp(date).timestamp() for date in df.index])
             
@@ -250,7 +250,7 @@ class MainWindow(QMainWindow):
             # Plot data if available
             if not df.empty:
                 for stage in stages_to_plot:  # Only plot selected stages
-                    if stage in colors:  # Make sure we have a color for this stage
+                    if stage in colors:  # Make sure we have color for this stage
                         color = colors[stage]
                         y_values = df[stage].fillna(0).values
                         
