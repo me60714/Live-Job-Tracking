@@ -11,3 +11,5 @@ all_jobs_details.py
 all_jobs_details.json
 all_jobs_list.py
 all_jobs_list.csv
+job_data_processor.py
+processed_data/
