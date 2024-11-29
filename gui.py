@@ -185,7 +185,6 @@ class MainWindow(QMainWindow):
         locations = [location] if location != 'All' else None
         
         unit = self.unit_filter.currentText()
-        view_type = 'Cumulative'
         
         start_date = self.start_date.date().toString("yyyy-MM-dd")
         end_date = self.end_date.date().toString("yyyy-MM-dd")
@@ -195,11 +194,10 @@ class MainWindow(QMainWindow):
             start_date, 
             end_date, 
             stages, 
-            view_type,
             locations,
             unit
         )
-        self.update_plot(data, view_type, unit)
+        self.update_plot(data, 'Cumulative', unit)
 
     def update_plot(self, data, view_type, unit):
         self.plot_widget.clear()

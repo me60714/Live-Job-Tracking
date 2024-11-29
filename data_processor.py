@@ -306,8 +306,8 @@ class JiraDataProcessor:
         return running_avg.tail(7)
 
     def get_data(self, project_key: str, start_date: str = None, end_date: str = None, 
-                 stages: List[str] = None, view_type: str = 'Daily Count', 
-                 locations: List[str] = None, unit: str = 'Job Number') -> Dict:
+                 stages: List[str] = None, locations: List[str] = None, 
+                 unit: str = 'Job Number') -> Dict:
 
         print(f"Fetching data for project {project_key}")
         
@@ -323,7 +323,7 @@ class JiraDataProcessor:
         
         # Create complete date range
         date_range = pd.date_range(start=start_date, end=end_date)
-        aggregated_data = self.aggregate_data(filtered_df, view_type, date_range, unit, stages)
+        aggregated_data = self.aggregate_data(filtered_df, date_range, unit, stages)
         
         return {
             'df': filtered_df,
@@ -373,10 +373,9 @@ class JiraDataProcessor:
             print(f"Error extracting test number from {job_number}: {e}")
             return 0
 
-    def aggregate_data(self, df: pd.DataFrame, view_type: str = 'Daily Count', 
-                      date_range: pd.DatetimeIndex = None, unit: str = 'Job Number',
-                      stages: List[str] = None) -> pd.DataFrame:
-        """Aggregate data based on view type and unit."""
+    def aggregate_data(self, df: pd.DataFrame, date_range: pd.DatetimeIndex = None, 
+                      unit: str = 'Job Number', stages: List[str] = None) -> pd.DataFrame:
+        """Aggregate data based on unit type and stages."""
         print("\nAggregating data:")
         print(f"Input DataFrame shape: {df.shape}")
         
@@ -385,7 +384,7 @@ class JiraDataProcessor:
         
         if date_range is not None:
             dates = [d.date() for d in date_range]
-            daily_counts = pd.DataFrame(0, index=dates, columns=stages_to_show)
+            cumulative_counts = pd.DataFrame(0, index=dates, columns=stages_to_show)
             
             if not df.empty:
                 for date in dates:
@@ -415,9 +414,6 @@ class JiraDataProcessor:
                             stage_counts[current_stage] += count
                     
                     for stage in stages_to_show:
-                        daily_counts.loc[date, stage] = stage_counts[stage]
-                
-                if view_type != 'Cumulative':
-                    daily_counts = daily_counts - daily_counts.shift(1).fillna(0)
+                        cumulative_counts.loc[date, stage] = stage_counts[stage]
         
-        return daily_counts
+        return cumulative_counts
