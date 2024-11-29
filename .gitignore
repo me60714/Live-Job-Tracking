@@ -2,8 +2,12 @@ __pycache__/
 .venv/
 .vscode/
 output/
-test_and_debug/
 config.py
 hot_reload.py
 installer.txt
 note.txt
+brainstorm.txt
+all_jobs_details.py
+all_jobs_details.json
+all_jobs_list.py
+all_jobs_list.csv
