@@ -31,7 +31,7 @@ class RateLimiter:
         # Remove requests older than 1 minute
         self.requests = [req_time for req_time in self.requests if req_time > minute_ago]
         
-        # If we're approaching the limit (including buffer), wait
+        # If approaching the limit (including buffer), wait
         if len(self.requests) >= (self.requests_per_minute - self.buffer):
             oldest_request = self.requests[0]
             sleep_time = (oldest_request + timedelta(minutes=1) - now).total_seconds()
