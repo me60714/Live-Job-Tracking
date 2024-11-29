@@ -1,5 +1,5 @@
 ########################################################################
-# This script manages API token validation and updates.                 #
+# This script manages API token validation and updates.                #
 ########################################################################
 
 from urllib.parse import urljoin
@@ -37,9 +37,10 @@ class APIManager:
                 print("API Token is valid")
                 
                 # Auto-prompt for token update if near expiration
-                if days_left <= 7:  # Warning when 7 days or less remaining
+                # warning when 7 days or less remaining, force update when 1 day or less
+                if days_left <= 7:
                     print(f"\nWARNING: Token expires in {days_left} days!")
-                    if days_left <= 1:  # Force update when 1 day or less
+                    if days_left <= 1:
                         print("\nToken expiring very soon. Update required.")
                         self.update_token()
                         return False
