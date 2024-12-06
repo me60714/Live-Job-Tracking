@@ -311,3 +311,61 @@ class MainWindow(QMainWindow):
             y_axis.setTicks([y_ticks])
             
             self.plot_widget.setBackground('black')
+            
+            # Get the most recent date's totals
+            latest_date = df.index[-1]
+            
+            # Get current location filter
+            location = self.location_filter.currentText()
+            locations = [location] if location != 'All' else None
+            
+            # Calculate job number total (sum of the 4 main stages)
+            filtered_df = data['df'][
+                (data['df']['created_date'].dt.date <= latest_date) &
+                (data['df']['stage'].isin(['Open', 'Sample Preparation', 'Testing', 'Report']))
+            ]
+            
+            # Apply location filter if specified
+            if locations:
+                filtered_df = filtered_df[filtered_df['location'].isin(locations)]
+            
+            job_total = len(filtered_df)
+            
+            # Calculate test number total from the same filtered DataFrame
+            test_total = sum(
+                self.data_processor.extract_test_number(job_number) 
+                for job_number in filtered_df['job_number']
+            )
+            
+            # Create text items for the totals
+            total_text = pg.TextItem(
+                html=(
+                    f'<div style="color: white; background-color: rgba(0, 0, 0, 0.7); padding: 5px;">'
+                    f'Today\'s Total Job Number: <b>{job_total}</b><br>'
+                    f'Today\'s Total Test Number: <b>{test_total}</b>'
+                    f'</div>'
+                ),
+                anchor=(1, 0)  # Anchor to top-right
+            )
+            
+            self.plot_widget.addItem(total_text)
+            
+            # Position the text in the top-right corner with some padding
+            view_box = self.plot_widget.getViewBox()
+            view_range = view_box.viewRange()
+            x_max = view_range[0][1]
+            y_max = view_range[1][1]
+            total_text.setPos(x_max, y_max)
+
+    def get_test_number_total(self, df, date):
+        """Calculate total test numbers for a specific date."""
+        # Filter DataFrame for the given date
+        date_df = df[df['created_date'].dt.date <= date]
+        
+        # Sum test numbers from job numbers
+        total_tests = sum(
+            self.data_processor.extract_test_number(job_number) 
+            for job_number in date_df['job_number']
+        )
+        
+        return int(total_tests)
