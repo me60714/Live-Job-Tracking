@@ -335,12 +335,20 @@ class JiraDataProcessor:
     def extract_test_number(self, job_number: str) -> int:
         """Extract test number from job number string."""
         try:
-            # Find all numbers within parentheses
+            # Find all text within parentheses
             numbers = re.findall(r'\(([^)]+)\)', job_number)
             
             if not numbers:
                 return 0
-                
+            
+            # Check if content within parentheses contains month names
+            months = ['January', 'February', 'March', 'April', 'May', 'June', 
+                     'July', 'August', 'September', 'October', 'November', 'December',
+                     'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+            if any(month in numbers[0] for month in months):
+                return 0
+
             # Handle arrow notation
             if '-->' in job_number:
                 # Try to get both numbers
