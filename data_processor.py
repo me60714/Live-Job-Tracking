@@ -367,9 +367,12 @@ class JiraDataProcessor:
                 return 0
                 
             # Handle other formats
-            if '-' in numbers[0]:  # Format: (9-3)
-                a, b = map(int, numbers[0].split('-'))
-                return abs(a - b)
+            if '-' in numbers[0]:  # Format: (9-3) or (41-11 = 30)
+                # Extract first two numbers before any equals sign
+                nums = re.findall(r'\d+', numbers[0].split('=')[0])
+                if len(nums) >= 2:
+                    a, b = map(int, nums[:2])
+                    return abs(a - b)
             elif '+' in numbers[0]:  # Format: (3+3)
                 return sum(map(int, numbers[0].split('+')))
             else:
