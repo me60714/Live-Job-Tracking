@@ -18,3 +18,5 @@ processed_jobs.csv
 all_jobs_list.csv
 job_data_processor.py
 processed_data/
+total_test_number.py
+2024_daily_test_counts.xlsx
