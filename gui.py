@@ -16,8 +16,8 @@ class MainWindow(QMainWindow):
         self.update_data()
 
     def init_ui(self):
-        self.setWindowTitle('Live Job Tracking')
-        self.setGeometry(100, 100, 1000, 600)
+        self.setWindowTitle('Live Jira Job Tracking')
+        self.setGeometry(100, 100, 1000, 700)
 
         # Main layout
         main_layout = QVBoxLayout()
@@ -34,7 +34,7 @@ class MainWindow(QMainWindow):
         
         # Get this week's Monday
         this_monday = current_date.addDays(-days_since_monday)
-        this_sunday = this_monday.addDays(6)  # Sunday is 6 days after Monday
+        this_sunday = this_monday.addDays(6)
         
         # Start date section
         start_date_layout = QHBoxLayout()
@@ -49,7 +49,7 @@ class MainWindow(QMainWindow):
         start_date_layout.addWidget(self.start_date)
         date_layout.addLayout(start_date_layout)
         
-        # Add spacing between start and end date
+        
         date_layout.addSpacing(30)
         
         # End date section
@@ -80,7 +80,7 @@ class MainWindow(QMainWindow):
         stage_label = QLabel("Stage:")
         stage_label.setFixedWidth(50)
         self.stage_filter = QComboBox(self)
-        self.stage_filter.addItems(['All','open', 'Sample Preparation', 'Testing', 'Report'])
+        self.stage_filter.addItems(['All', 'Open', 'Sample Preparation', 'Testing', 'Report'])
         self.stage_filter.currentTextChanged.connect(self.update_data)
         stage_layout.addWidget(stage_label)
         stage_layout.addWidget(self.stage_filter)
@@ -97,6 +97,18 @@ class MainWindow(QMainWindow):
         location_layout.addWidget(location_label)
         location_layout.addWidget(self.location_filter)
         filter_layout.addLayout(location_layout)
+        
+        # Unit filter
+        unit_layout = QHBoxLayout()
+        unit_layout.setSpacing(5)
+        unit_label = QLabel("Unit:")
+        unit_label.setFixedWidth(50)
+        self.unit_filter = QComboBox(self)
+        self.unit_filter.addItems(['Job Number', 'Test Number'])
+        self.unit_filter.currentTextChanged.connect(self.update_data)
+        unit_layout.addWidget(unit_label)
+        unit_layout.addWidget(self.unit_filter)
+        filter_layout.addLayout(unit_layout)
         
         # Add spacing before refresh button
         filter_layout.addSpacing(20)
@@ -172,7 +184,7 @@ class MainWindow(QMainWindow):
         location = self.location_filter.currentText()
         locations = [location] if location != 'All' else None
         
-        view_type = 'Cumulative'
+        unit = self.unit_filter.currentText()
         
         start_date = self.start_date.date().toString("yyyy-MM-dd")
         end_date = self.end_date.date().toString("yyyy-MM-dd")
@@ -182,12 +194,12 @@ class MainWindow(QMainWindow):
             start_date, 
             end_date, 
             stages, 
-            view_type,
-            locations
+            locations,
+            unit
         )
-        self.update_plot(data, view_type)
+        self.update_plot(data, 'Cumulative', unit)
 
-    def update_plot(self, data, view_type):
+    def update_plot(self, data, view_type, unit):
         self.plot_widget.clear()
         
         # Disable mouse interactions
@@ -196,13 +208,17 @@ class MainWindow(QMainWindow):
         self.plot_widget.getPlotItem().getViewBox().setLimits(xMin=None, xMax=None, yMin=0, yMax=None)
         
         # Define fixed order of stages and their colors
-        STAGE_ORDER = ['Open','Sample Preparation', 'Testing', 'Report']
+        ALL_STAGES = ['Open', 'Sample Preparation', 'Testing', 'Report']
         colors = {
-            'Open': pg.mkColor('#FFBB00'),               #yellow-orange
-            'Sample Preparation': pg.mkColor('#375E97'), #deep blue
-            'Testing': pg.mkColor('#FB6542'),            #orange-red
-            'Report': pg.mkColor('#008000')             #green
+            'Open': pg.mkColor('#FFBB00'),
+            'Sample Preparation': pg.mkColor('#375E97'),
+            'Testing': pg.mkColor('#FB6542'),
+            'Report': pg.mkColor('#008000')
         }
+        
+        # Only plot selected stage if not 'All'
+        selected_stage = self.stage_filter.currentText()
+        stages_to_plot = [selected_stage] if selected_stage != 'All' else ALL_STAGES
         
         # Remove old legend if it exists
         if hasattr(self, 'legend'):
@@ -213,7 +229,7 @@ class MainWindow(QMainWindow):
         
         # Filter out weekends
         if not df.empty:
-            df = df[df.index.map(lambda x: pd.Timestamp(x).weekday() < 5)]  # 0-4 are Monday-Friday
+            df = df[df.index.map(lambda x: pd.Timestamp(x).weekday() < 5)]  # 0-4 -> Mon-Fri
             
             x = np.array([pd.Timestamp(date).timestamp() for date in df.index])
             
@@ -224,6 +240,7 @@ class MainWindow(QMainWindow):
                 # Replace NaN with 0 before finding max
                 data_max = int(np.ceil(df.fillna(0).values.max()))
                 y_max = max(5, data_max)
+                y_max = int(y_max * 1.2) #add 20% buffer to not overlap with legend
             
             self.plot_widget.setYRange(0, y_max)
             
@@ -232,35 +249,36 @@ class MainWindow(QMainWindow):
             
             # Plot data if available
             if not df.empty:
-                for stage in STAGE_ORDER:
-                    color = colors[stage]
-                    y_values = df[stage].fillna(0).values
-                    
-                    plot_item = self.plot_widget.plot(
-                        x=x,
-                        y=y_values,
-                        pen=pg.mkPen(color, width=2),
-                        name=stage,
-                        symbol='o',
-                        symbolSize=8,
-                        symbolBrush=color,
-                        symbolPen=color
-                    )
-                    
-                    # Add value labels next to each point
-                    for i, (x_val, y_val) in enumerate(zip(x, y_values)):
-                        if y_val > 0:
-                            text = pg.TextItem(
-                                text=str(int(y_val)),
-                                color=color,
-                                anchor=(0, 1)
-                            )
-                            self.plot_widget.addItem(text)
-                            x_offset = (x[-1] - x[0]) * 0.001
-                            text.setPos(x_val + x_offset, y_val)
+                for stage in stages_to_plot:  # Only plot selected stages
+                    if stage in colors:  # Make sure we have color for this stage
+                        color = colors[stage]
+                        y_values = df[stage].fillna(0).values
+                        
+                        plot_item = self.plot_widget.plot(
+                            x=x,
+                            y=y_values,
+                            pen=pg.mkPen(color, width=2),
+                            name=stage,
+                            symbol='o',
+                            symbolSize=8,
+                            symbolBrush=color,
+                            symbolPen=color
+                        )
+                        
+                        # Add value labels next to each point
+                        for i, (x_val, y_val) in enumerate(zip(x, y_values)):
+                            if y_val > 0:
+                                text = pg.TextItem(
+                                    text=str(int(y_val)),
+                                    color=color,
+                                    anchor=(0, 1)
+                                )
+                                self.plot_widget.addItem(text)
+                                x_offset = (x[-1] - x[0]) * 0.001
+                                text.setPos(x_val + x_offset, y_val)
             
-            # Set labels
-            y_label = 'Total Number of Jobs' if view_type == 'Cumulative' else 'Number of Jobs'
+            # Update y-axis label based on unit
+            y_label = f'Total {"Test" if unit == "Test Number" else "Job"} Numbers'
             self.plot_widget.setLabel('left', y_label)
             
             # Fix for x-axis label
@@ -293,3 +311,61 @@ class MainWindow(QMainWindow):
             y_axis.setTicks([y_ticks])
             
             self.plot_widget.setBackground('black')
+            
+            # Get the most recent date's totals
+            latest_date = df.index[-1]
+            
+            # Get current location filter
+            location = self.location_filter.currentText()
+            locations = [location] if location != 'All' else None
+            
+            # Calculate job number total (sum of the 4 main stages)
+            filtered_df = data['df'][
+                (data['df']['created_date'].dt.date <= latest_date) &
+                (data['df']['stage'].isin(['Open', 'Sample Preparation', 'Testing', 'Report']))
+            ]
+            
+            # Apply location filter if specified
+            if locations:
+                filtered_df = filtered_df[filtered_df['location'].isin(locations)]
+            
+            job_total = len(filtered_df)
+            
+            # Calculate test number total from the same filtered DataFrame
+            test_total = sum(
+                self.data_processor.extract_test_number(job_number) 
+                for job_number in filtered_df['job_number']
+            )
+            
+            # Create text items for the totals
+            total_text = pg.TextItem(
+                html=(
+                    f'<div style="color: white; background-color: rgba(0, 0, 0, 0.7); padding: 5px;">'
+                    f'Today\'s Total Job Number: <b>{job_total}</b><br>'
+                    f'Today\'s Total Test Number: <b>{test_total}</b>'
+                    f'</div>'
+                ),
+                anchor=(1, 0)  # Anchor to top-right
+            )
+            
+            self.plot_widget.addItem(total_text)
+            
+            # Position the text in the top-right corner with some padding
+            view_box = self.plot_widget.getViewBox()
+            view_range = view_box.viewRange()
+            x_max = view_range[0][1]
+            y_max = view_range[1][1]
+            total_text.setPos(x_max, y_max)
+
+    def get_test_number_total(self, df, date):
+        """Calculate total test numbers for a specific date."""
+        # Filter DataFrame for the given date
+        date_df = df[df['created_date'].dt.date <= date]
+        
+        # Sum test numbers from job numbers
+        total_tests = sum(
+            self.data_processor.extract_test_number(job_number) 
+            for job_number in date_df['job_number']
+        )
+        
+        return int(total_tests)

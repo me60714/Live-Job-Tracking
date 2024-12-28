@@ -12,7 +12,7 @@ import json
 from config import JIRA_URL, JIRA_USERNAME, JIRA_API_TOKEN
 import re
 from rate_limiter import RateLimiter
-from api_checker import check_api_token
+from api_manager import get_api_manager
 
 class JiraDataProcessor:
 
@@ -21,8 +21,8 @@ class JiraDataProcessor:
         self.JIRA_USERNAME = JIRA_USERNAME
         self.JIRA_API_TOKEN = JIRA_API_TOKEN
         
-        # Check API token before proceeding
-        if not check_api_token(self.JIRA_URL, self.JIRA_USERNAME, self.JIRA_API_TOKEN):
+        self.api_manager = get_api_manager()
+        if not self.api_manager.check_token():
             raise ValueError("Invalid or expired API token")
             
         self.rate_limiter = RateLimiter()
@@ -39,7 +39,6 @@ class JiraDataProcessor:
         # Only filter for parent issues and label including CIPP
         base_query = jql_query.replace(' ORDER BY created DESC', '')
         jql_query = f'{base_query} AND parent IS EMPTY AND labels in (CIPP) ORDER BY created DESC'
-        print(f"JQL Query: {jql_query}")
         
         all_issues = []
         start_at = 0
@@ -75,9 +74,6 @@ class JiraDataProcessor:
                 data = response.json()
                 issues = data['issues']
                 
-                print(f"Total available issues: {data['total']}")
-                print(f"Fetched {len(issues)} issues in this request")
-                
                 if not issues:
                     break
                     
@@ -91,7 +87,6 @@ class JiraDataProcessor:
                 print(f"Error fetching data: {e}")
                 break
         
-        print(f"Number of issues fetched: {len(all_issues)}")
         return all_issues
 
     def process_issues(self, issues: List[Dict]) -> pd.DataFrame:
@@ -148,7 +143,7 @@ class JiraDataProcessor:
             
             data = {
                 'key': issue['key'],
-                'job': job_number,
+                'job_number': job_number,
                 'status': current_status,
                 'created_date': created_date,
                 'stage': self.determine_stage(current_status),
@@ -160,7 +155,7 @@ class JiraDataProcessor:
         # Convert to DataFrame for easier sorting
         df = pd.DataFrame(processed_data)
         
-        # Create status priority mapping based on the order in other_statuses
+        
         other_status_priority = {status.lower(): idx for idx, status in enumerate([
             'quotation',
             'in progress',
@@ -195,7 +190,7 @@ class JiraDataProcessor:
         # Print sorted rows
         for _, row in df.iterrows():
             formatted_date = row['created_date'].strftime('%Y-%m-%d %H:%M')
-            print(f"{row['key']:<12} {row['job']:<35} {row['status']:<15} {row['location']:<12} {formatted_date:<16} {row['stage']:<15}")
+            print(f"{row['key']:<12} {row['job_number']:<35} {row['status']:<15} {row['location']:<12} {formatted_date:<16} {row['stage']:<15}")
 
         # Print invalid jobs warning if any
         if invalid_jobs:
@@ -251,8 +246,8 @@ class JiraDataProcessor:
         else:
             return 'Other'
 
-    def filter_issues(self, df: pd.DataFrame, start_date: str = None, end_date: str = None, stages: List[str] = None) -> pd.DataFrame:
-        """Filter issues based on date range and stages."""
+    def filter_issues(self, df: pd.DataFrame, start_date: str = None, end_date: str = None) -> pd.DataFrame:
+        """Filter issues based on date range."""
         print("\nFiltering data:")
         
         if start_date:
@@ -274,13 +269,12 @@ class JiraDataProcessor:
                 (filtered_df['created_date'] <= end_date)
             ]
         
-        if stages:
-            filtered_df = filtered_df[filtered_df['stage'].isin(stages)]
-        
         print(f"Number of issues after filtering: {len(filtered_df)}")
         
         if not filtered_df.empty:
-            print(f"Date range of data: {filtered_df['created_date'].min()} to {filtered_df['created_date'].max()}")
+            min_date = filtered_df['created_date'].min().strftime('%Y-%m-%d %H:%M')
+            max_date = filtered_df['created_date'].max().strftime('%Y-%m-%d %H:%M')
+            print(f"Date range of data: {min_date} to {max_date}")
         
         return filtered_df
 
@@ -312,14 +306,10 @@ class JiraDataProcessor:
         return running_avg.tail(7)
 
     def get_data(self, project_key: str, start_date: str = None, end_date: str = None, 
-                 stages: List[str] = None, view_type: str = 'Daily Count', 
-                 locations: List[str] = None) -> Dict:
-        print(f"\nFetching data with parameters:")
-        print(f"Project: {project_key}")
-        print(f"Date range: {start_date} to {end_date}")
-        print(f"Stages: {stages}")
-        print(f"Locations: {locations}")
-        print(f"View type: {view_type}")
+                 stages: List[str] = None, locations: List[str] = None, 
+                 unit: str = 'Job Number') -> Dict:
+
+        print(f"Fetching data for project {project_key}")
         
         jql_query = f'project = {project_key} ORDER BY created DESC'
         issues = self.fetch_issues(jql_query)
@@ -329,11 +319,11 @@ class JiraDataProcessor:
         if locations:
             df = df[df['location'].isin(locations)]
         
-        filtered_df = self.filter_issues(df, start_date, end_date, stages)
+        filtered_df = self.filter_issues(df, start_date, end_date)
         
         # Create complete date range
         date_range = pd.date_range(start=start_date, end=end_date)
-        aggregated_data = self.aggregate_data(filtered_df, view_type, date_range)
+        aggregated_data = self.aggregate_data(filtered_df, date_range, unit, stages)
         
         return {
             'df': filtered_df,
@@ -342,51 +332,99 @@ class JiraDataProcessor:
             'aggregated_data': aggregated_data
         }
 
-    def aggregate_data(self, df: pd.DataFrame, view_type: str = 'Daily Count', date_range: pd.DatetimeIndex = None) -> pd.DataFrame:
-        """Aggregate data based on view type."""
+    def extract_test_number(self, job_number: str) -> int:
+        """Extract test number from job number string."""
+        try:
+            # Find all text within parentheses
+            numbers = re.findall(r'\(([^)]+)\)', job_number)
+            
+            if not numbers:
+                return 0
+            
+            # Check if content within parentheses contains month names
+            months = ['January', 'February', 'March', 'April', 'May', 'June', 
+                     'July', 'August', 'September', 'October', 'November', 'December',
+                     'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+            if any(month in numbers[0] for month in months):
+                return 0
+
+            # Handle arrow notation
+            if '-->' in job_number:
+                # Try to get both numbers
+                first_num = re.search(r'\((\d+)\)', job_number)
+                last_num = re.search(r'-->[^(]*\((\d+)\)', job_number)
+                
+                # If we have both valid numbers, use the last one
+                if first_num and last_num:
+                    try:
+                        return int(last_num.group(1))
+                    except ValueError:
+                        return int(first_num.group(1))
+                # If only first number is valid, use it
+                elif first_num:
+                    return int(first_num.group(1))
+                return 0
+                
+            # Handle other formats
+            if '-' in numbers[0]:  # Format: (9-3) or (41-11 = 30)
+                # Extract first two numbers before any equals sign
+                nums = re.findall(r'\d+', numbers[0].split('=')[0])
+                if len(nums) >= 2:
+                    a, b = map(int, nums[:2])
+                    return abs(a - b)
+            elif '+' in numbers[0]:  # Format: (3+3)
+                return sum(map(int, numbers[0].split('+')))
+            else:
+                # Extract first number if multiple numbers exist
+                match = re.search(r'\d+', numbers[0])
+                return int(match.group()) if match else 0
+                
+        except Exception as e:
+            print(f"Error extracting test number from {job_number}: {e}")
+            return 0
+
+    def aggregate_data(self, df: pd.DataFrame, date_range: pd.DatetimeIndex = None, 
+                      unit: str = 'Job Number', stages: List[str] = None) -> pd.DataFrame:
+        """Aggregate data based on unit type and stages."""
         print("\nAggregating data:")
         print(f"Input DataFrame shape: {df.shape}")
         
-        STAGE_ORDER = ['Open', 'Sample Preparation', 'Testing', 'Report', 'Other']
+        STAGE_ORDER = ['Open', 'Sample Preparation', 'Testing', 'Report']
+        stages_to_show = stages if stages else STAGE_ORDER
         
         if date_range is not None:
             dates = [d.date() for d in date_range]
-            daily_counts = pd.DataFrame(0, index=dates, columns=STAGE_ORDER)
+            cumulative_counts = pd.DataFrame(0, index=dates, columns=stages_to_show)
             
             if not df.empty:
-                # Create a snapshot of issue states for each date
                 for date in dates:
-                    # Reset counts for this date
-                    stage_counts = {stage: 0 for stage in STAGE_ORDER}
+                    stage_counts = {stage: 0 for stage in stages_to_show}
                     
                     for _, issue in df.iterrows():
-                        # Skip if issue wasn't created yet
                         if issue['created_date'].date() > date:
                             continue
                         
-                        # Start with the initial stage
+                        # Determine the stage of the issue on this date
                         current_stage = issue['stage']
-                        
-                        # Check status changes up to this date
                         relevant_changes = [
                             change for change in issue['status_changes']
                             if change['date'].date() <= date
                         ]
                         
                         if relevant_changes:
-                            # Get the most recent change
                             last_change = sorted(relevant_changes, key=lambda x: x['date'])[-1]
                             current_stage = self.determine_stage(last_change['to_status'])
                         
-                        # Count this issue in its current stage
-                        stage_counts[current_stage] += 1
+                        # Only count if we're showing all stages or this is the selected stage
+                        if current_stage in stages_to_show:
+                            if unit == 'Test Number':
+                                count = self.extract_test_number(issue['job_number'])
+                            else:
+                                count = 1
+                            stage_counts[current_stage] += count
                     
-                    # Update daily counts with the snapshot
-                    for stage in STAGE_ORDER:
-                        daily_counts.loc[date, stage] = stage_counts[stage]
-                
-                if view_type != 'Cumulative':
-                    # For non-cumulative view, subtract previous day's count
-                    daily_counts = daily_counts - daily_counts.shift(1).fillna(0)
+                    for stage in stages_to_show:
+                        cumulative_counts.loc[date, stage] = stage_counts[stage]
         
-        return daily_counts
+        return cumulative_counts

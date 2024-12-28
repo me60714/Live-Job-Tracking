@@ -1,5 +1,5 @@
 ########################################################################
-# This script runs the live job tracking application.                  #
+# This is the main script that runs the live job tracking application. #
 ########################################################################
 
 import sys

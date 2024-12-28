@@ -2,172 +2,71 @@
 
 # Live Job Tracking
 
-An automatic live job tracking application that visualizes JIRA workflow data in real-time.
-
-## Description
-
-This application provides a real-time visualization of job statuses from JIRA, helping teams track their workflow across different stages (Sample Preparation, Testing, and Other). It features a dynamic line graph that updates automatically and allows for custom date range and stage filtering.
+Real-time JIRA workflow visualization tool for tracking job progress.
 
 ## Features
 
-- Real-time data visualization with automatic 3-minute updates
-- Interactive line graph showing job progression through stages:
-  - Open                    # New status
-  - Sample Preparation
-  - Testing
-  - Report                  # New status
-  - Other
-- Date range selection with Monday-Sunday week alignment
-- Stage filtering
-- Cumulative view of job counts
-- Value labels on data points
-- Dark theme interface
-- API token validation and expiration tracking
-- Rate limiting protection for JIRA API calls
+- Real-time visualization with 3-minute auto-updates
+- Interactive dark theme graph
+- Multi-filter support:
+  - Date range
+  - Job stage
+  - Location (YEG/YUL/YYZ)
+  - Unit type (Job/Test Number)
+- API Management:
+  - Automatic token validation
+  - 7-day expiration warnings
+  - Forced updates for expired tokens
+- Rate limiting protection for API calls
 
 ## Prerequisites
 
-- Python 3.8 or higher
+- Python 3.8+
 - JIRA account with API access
-- PyQt5
-- Required Python packages (see Requirements section)
 
-## Installation
+## Setup
 
-1. Clone the repository:  
-bash
-```
+1. Install:
+```bash
 git clone https://github.com/me60714/Live-Job-Tracking.git
 cd Live-Job-Tracking
-```
-2. Install required packages:
-bash
-```
 pip install -r requirements.txt
 ```
-3. Create a `config.py` file with your JIRA credentials:
-   
-python
-```
+
+2. Configure `config.py`:
+```python
 JIRA_URL = "your_jira_url"
 JIRA_USERNAME = "your_username"
 JIRA_API_TOKEN = "your_api_token"
+TOKEN_CREATED_DATE = "YYYY-MM-DD"
 ```
 
-## Usage
-
-1. Run the application:
-
-bash
-```
+3. Run the application:
+```bash
 python live_job_tracking.py
 ```
-2. Use the interface to:
-   - Select date ranges (automatically aligns to Monday-Sunday weeks)
-   - Filter by stages
-   - View cumulative job counts
-   - Refresh data manually or wait for automatic updates
 
-## Configuration
+Note: To manually update the API token when needed:
+```bash
+python api_manager.py
+```
 
-The application uses the following configuration options:
-- Date range: Monday to Sunday week selection
-- Update interval: 3 minutes
-- Stages: 
-  - Open
-  - Sample Preparation
-  - Testing
-  - Report
-  - Other
-- API token management: 90-day rotation recommended (best practice for security)
-- Rate limiting: Implemented to protect against API throttling
-- Graph colors:
-  - Open: Green
-  - Sample Preparation: Deep Blue
-  - Testing: Orange-Red
-  - Report: Purple
-  - Other: Yellow-Orange
+## Versions
 
-## Security Best Practices
+### 1.1.1 (2024-11-22)
+- Added unit and location filtering
+- Enhanced API token management
+- Improved visualization scaling
 
-### API Token Management
-While Atlassian API tokens don't have a built-in expiration date, this application implements a 90-day token rotation policy as a security best practice. This helps:
-- Minimize the impact of potential token compromise
-- Ensure regular security reviews
-- Maintain good security hygiene
-- Track and manage token usage
+### 1.1.0 (2024-11-15)
+- Added API security features
+- New status categories
 
-The application will notify you when your token approaches the 90-day mark, allowing you to:
-1. Generate a new token in your Atlassian account
-2. Update the token in your configuration
-3. Ensure continuous, secure operation
-
-## Project Structure
-Live-Job-Tracking/  
-├── live_job_tracking.py #Main entry point  
-├── data_processor.py    #JIRA data processing  
-├── gui.py               #PyQt5 user interface  
-├── config.py            #Configuration (not in repo)  
-├── api_checker.py       #API token validation   
-├── rate_limiter.py      #Rate limit protection  
-└── requirements.txt     #Package dependencies  
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## Acknowledgments
-
-- JIRA API documentation
-- PyQt5 and PyQtGraph libraries
-
-## Version
-
-- Current Version: 1.1.0
-- Last Updated: 2024-11-15
-
-## Authors
-
-- Wayne Kao - Initial work - [GitHub](https://github.com/me60714)
-
-## License
-
-MIT License
-
-Copyright (c) 2024 Wayne Kao
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-## Version History
-
-### Version 1.1.0 (2024-11-15)
-- Added API token validation and expiration tracking
-- Implemented rate limiting for JIRA API calls
-- Enhanced error handling for API requests
-- Added new status categories: 'Open' and 'Report'
-- Updated visualization to support five distinct stages
-
-### Version 1.0.0 (2024-11-03)
+### 1.0.0 (2024-11-03)
 - Initial release
-- Basic job tracking functionality
-- Real-time visualization features
+
+## Author
+
+Wayne Kao - [GitHub](https://github.com/me60714)
+
+MIT License - Copyright (c) 2024 Wayne Kao
