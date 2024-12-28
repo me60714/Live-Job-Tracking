@@ -53,11 +53,11 @@ python api_manager.py
 
 ## Versions
 
-### 1.1.3 (2024-12-06)
+### 1.1.3 (2024-12-20)
 - Improved graph visualization with value labels
 - Added cumulative totals display for both job and test numbers
 
-### 1.1.2 (2024-11-29)
+### 1.1.2 (2024-12-06)
 - Implemented rate-limiting protection for API requests
 - Enhanced error handling for API token validation
 - Added automatic token expiration warnings (7-day notice)
