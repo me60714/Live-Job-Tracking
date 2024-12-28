@@ -12,4 +12,8 @@ all_jobs_details.json
 installer.txt
 output/
 all_jobs_list.py
+all_jobs.json
 all_jobs_list.csv
+all_jobs.py
+export_jobs.py
+processed_jobs.csv
