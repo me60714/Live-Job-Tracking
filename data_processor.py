@@ -36,9 +36,8 @@ class JiraDataProcessor:
         api_endpoint = urljoin(self.JIRA_URL, "/rest/api/2/search")
         headers = {"Accept": "application/json"}
         
-        # Only filter for parent issues and label including CIPP
         base_query = jql_query.replace(' ORDER BY created DESC', '')
-        jql_query = f'{base_query} AND parent IS EMPTY AND labels in (CIPP) ORDER BY created DESC'
+        jql_query = f'{base_query} AND parent IS EMPTY AND labels in (CIPP) AND created >= "2024-01-01" ORDER BY created DESC'
         
         all_issues = []
         start_at = 0
@@ -46,7 +45,6 @@ class JiraDataProcessor:
         
         while True:
             try:
-                # Add rate limiting
                 self.rate_limiter.wait_if_needed()
                 
                 params = {
@@ -63,22 +61,19 @@ class JiraDataProcessor:
                     auth=(self.JIRA_USERNAME, self.JIRA_API_TOKEN)
                 )
                 
-                # Check rate limit headers
-                if 'X-RateLimit-Remaining' in response.headers:
-                    remaining = int(response.headers['X-RateLimit-Remaining'])
-                    if remaining < 10:
-                        print(f"Warning: Only {remaining} requests remaining")
-                
                 response.raise_for_status()
-                
                 data = response.json()
-                issues = data['issues']
                 
+                # Add detailed debug info
+                print(f"Batch info:")
+                print(f"  Start at: {start_at}")
+                
+                issues = data['issues']
                 if not issues:
                     break
                     
                 all_issues.extend(issues)
-                start_at += max_results
+                start_at += len(issues)
                 
                 if len(all_issues) >= data['total']:
                     break
@@ -86,6 +81,13 @@ class JiraDataProcessor:
             except Exception as e:
                 print(f"Error fetching data: {e}")
                 break
+        
+        print(f"\nFetch summary:")
+        print(f"Total issues fetched: {len(all_issues)}")
+        # if all_issues:
+        #     earliest = min(issue['fields']['created'] for issue in all_issues)
+        #     latest = max(issue['fields']['created'] for issue in all_issues)
+            # print(f"Date range: {earliest} to {latest}")
         
         return all_issues
 
@@ -257,17 +259,12 @@ class JiraDataProcessor:
         
         filtered_df = df.copy()
         
-        # Convert both dates to datetime
-        if start_date:
-            start_date = pd.to_datetime(start_date)
+        # Convert end date to datetime
         if end_date:
             end_date = pd.to_datetime(end_date)
         
-        # Filter by date range
-        if start_date and end_date:
-            filtered_df = filtered_df[
-                (filtered_df['created_date'] <= end_date)
-            ]
+        # Don't filter the data - we need all historical data for proper cumulative counts
+        # The date range will be used in aggregate_data instead
         
         print(f"Number of issues after filtering: {len(filtered_df)}")
         
@@ -387,8 +384,8 @@ class JiraDataProcessor:
     def aggregate_data(self, df: pd.DataFrame, date_range: pd.DatetimeIndex = None, 
                       unit: str = 'Job Number', stages: List[str] = None) -> pd.DataFrame:
         """Aggregate data based on unit type and stages."""
-        print("\nAggregating data:")
-        print(f"Input DataFrame shape: {df.shape}")
+        # print("\nAggregating data:")
+        # print(f"Input DataFrame shape: {df.shape}")
         
         STAGE_ORDER = ['Open', 'Sample Preparation', 'Testing', 'Report']
         stages_to_show = stages if stages else STAGE_ORDER

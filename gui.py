@@ -312,14 +312,14 @@ class MainWindow(QMainWindow):
             
             self.plot_widget.setBackground('black')
             
-            # Get the most recent date's totals
-            latest_date = df.index[-1]
+            # Get the latest date from the entire dataset, not just the selected range
+            latest_date = data['df']['created_date'].max().date()
             
             # Get current location filter
             location = self.location_filter.currentText()
             locations = [location] if location != 'All' else None
             
-            # Calculate job number total (sum of the 4 main stages)
+            # Filter DataFrame for all data up to the latest date
             filtered_df = data['df'][
                 (data['df']['created_date'].dt.date <= latest_date) &
                 (data['df']['stage'].isin(['Open', 'Sample Preparation', 'Testing', 'Report']))
@@ -329,9 +329,10 @@ class MainWindow(QMainWindow):
             if locations:
                 filtered_df = filtered_df[filtered_df['location'].isin(locations)]
             
+            # Calculate job number total (cumulative)
             job_total = len(filtered_df)
             
-            # Calculate test number total from the same filtered DataFrame
+            # Calculate test number total (cumulative)
             test_total = sum(
                 self.data_processor.extract_test_number(job_number) 
                 for job_number in filtered_df['job_number']
