@@ -7,6 +7,7 @@ Real-time JIRA workflow visualization tool for tracking job progress.
 ## Features
 
 - Real-time visualization with 3-minute auto-updates
+- Smart data caching to improve performance
 - Interactive dark theme graph
 - Multi-filter support:
   - Date range
@@ -18,6 +19,10 @@ Real-time JIRA workflow visualization tool for tracking job progress.
   - 7-day expiration warnings
   - Forced updates for expired tokens
 - Rate limiting protection for API calls
+- Performance optimizations:
+  - Smart data caching
+  - Efficient regex processing
+  - Manual refresh option
 
 ## Prerequisites
 
@@ -52,6 +57,12 @@ python api_manager.py
 ```
 
 ## Versions
+
+### 1.1.4 (2025-02-12)
+- Added smart data caching (3-minute cache)
+- Optimized regex pattern processing
+- Added manual refresh option
+- Improved overall performance
 
 ### 1.1.3 (2024-12-20)
 - Improved graph visualization with value labels
