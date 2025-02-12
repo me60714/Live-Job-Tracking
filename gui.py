@@ -227,136 +227,135 @@ class MainWindow(QMainWindow):
         
         df = data['aggregated_data']
         
-        # Filter out weekends
+        # Optimize weekend filtering using vectorized operations
+        df = df[pd.to_datetime(df.index).weekday < 5]  # 0-4 -> Mon-Fri
+        
+        x = np.array([pd.Timestamp(date).timestamp() for date in df.index])
+        
+        # Set y-axis range, handling NaN values
+        if df.empty or df.isna().all().all():  # Check if DataFrame is empty or all NaN
+            y_max = 5
+        else:
+            # Replace NaN with 0 before finding max
+            data_max = int(np.ceil(df.fillna(0).values.max()))
+            y_max = max(5, data_max)
+            y_max = int(y_max * 1.2) #add 20% buffer to not overlap with legend
+        
+        self.plot_widget.setYRange(0, y_max)
+        
+        # Create new legend first
+        self.legend = self.plot_widget.addLegend(offset=(10, 10))
+        
+        # Plot data if available
         if not df.empty:
-            df = df[df.index.map(lambda x: pd.Timestamp(x).weekday() < 5)]  # 0-4 -> Mon-Fri
-            
-            x = np.array([pd.Timestamp(date).timestamp() for date in df.index])
-            
-            # Set y-axis range, handling NaN values
-            if df.empty or df.isna().all().all():  # Check if DataFrame is empty or all NaN
-                y_max = 5
-            else:
-                # Replace NaN with 0 before finding max
-                data_max = int(np.ceil(df.fillna(0).values.max()))
-                y_max = max(5, data_max)
-                y_max = int(y_max * 1.2) #add 20% buffer to not overlap with legend
-            
-            self.plot_widget.setYRange(0, y_max)
-            
-            # Create new legend first
-            self.legend = self.plot_widget.addLegend(offset=(10, 10))
-            
-            # Plot data if available
-            if not df.empty:
-                for stage in stages_to_plot:  # Only plot selected stages
-                    if stage in colors:  # Make sure we have color for this stage
-                        color = colors[stage]
-                        y_values = df[stage].fillna(0).values
-                        
-                        plot_item = self.plot_widget.plot(
-                            x=x,
-                            y=y_values,
-                            pen=pg.mkPen(color, width=2),
-                            name=stage,
-                            symbol='o',
-                            symbolSize=8,
-                            symbolBrush=color,
-                            symbolPen=color
-                        )
-                        
-                        # Add value labels next to each point
-                        for i, (x_val, y_val) in enumerate(zip(x, y_values)):
-                            if y_val > 0:
-                                text = pg.TextItem(
-                                    text=str(int(y_val)),
-                                    color=color,
-                                    anchor=(0, 1)
-                                )
-                                self.plot_widget.addItem(text)
-                                x_offset = (x[-1] - x[0]) * 0.001
-                                text.setPos(x_val + x_offset, y_val)
-            
-            # Update y-axis label based on unit
-            y_label = f'Total {"Test" if unit == "Test Number" else "Job"} Numbers'
-            self.plot_widget.setLabel('left', y_label)
-            
-            # Fix for x-axis label
-            plot_item = self.plot_widget.getPlotItem()
-            bottom_axis = plot_item.getAxis('bottom')
-            bottom_axis.enableAutoSIPrefix(False)  # Disable SI prefix notation
-            bottom_axis.setLabel('Date')  # Set label without any units
-            
-            # Set x-axis range
-            self.plot_widget.getPlotItem().setXRange(
-                min(x) - (x[-1] - x[0]) * 0.05,
-                max(x) + (x[-1] - x[0]) * 0.05
-            )
-            
-            # Set x-axis ticks
-            bottom_axis.setTicks([[(timestamp, pd.Timestamp(timestamp, unit='s').strftime('%a %Y-%m-%d')) 
-                                for timestamp in x]])
-            
-            y_axis = self.plot_widget.getAxis('left')
-            if y_max <= 20:
-                step = 1
-            elif y_max <= 50:
-                step = 5
-            elif y_max <= 100:
-                step = 10
-            else:
-                step = 20
-            
-            y_ticks = [(i, str(i)) for i in range(0, y_max + 1, step)]
-            y_axis.setTicks([y_ticks])
-            
-            self.plot_widget.setBackground('black')
-            
-            # Get the latest date from the entire dataset, not just the selected range
-            latest_date = data['df']['created_date'].max().date()
-            
-            # Get current location filter
-            location = self.location_filter.currentText()
-            locations = [location] if location != 'All' else None
-            
-            # Filter DataFrame for all data up to the latest date
-            filtered_df = data['df'][
-                (data['df']['created_date'].dt.date <= latest_date) &
-                (data['df']['stage'].isin(['Open', 'Sample Preparation', 'Testing', 'Report']))
-            ]
-            
-            # Apply location filter if specified
-            if locations:
-                filtered_df = filtered_df[filtered_df['location'].isin(locations)]
-            
-            # Calculate job number total (cumulative)
-            job_total = len(filtered_df)
-            
-            # Calculate test number total (cumulative)
-            test_total = sum(
-                self.data_processor.extract_test_number(job_number) 
-                for job_number in filtered_df['job_number']
-            )
-            
-            # Create text items for the totals
-            total_text = pg.TextItem(
-                html=(
-                    f'<div style="color: white; background-color: rgba(0, 0, 0, 0.7); padding: 5px;">'
-                    f'Today\'s Total Job Number: <b>{job_total}</b><br>'
-                    f'Today\'s Total Test Number: <b>{test_total}</b>'
-                    f'</div>'
-                ),
-                anchor=(1, 0)  # Anchor to top-right
-            )
-            
-            self.plot_widget.addItem(total_text)
-            
-            # Position the text in the top-right corner with some padding
-            view_box = self.plot_widget.getViewBox()
-            view_range = view_box.viewRange()
-            x_max = view_range[0][1]
-            y_max = view_range[1][1]
-            total_text.setPos(x_max, y_max)
+            for stage in stages_to_plot:  # Only plot selected stages
+                if stage in colors:  # Make sure we have color for this stage
+                    color = colors[stage]
+                    y_values = df[stage].fillna(0).values
+                    
+                    plot_item = self.plot_widget.plot(
+                        x=x,
+                        y=y_values,
+                        pen=pg.mkPen(color, width=2),
+                        name=stage,
+                        symbol='o',
+                        symbolSize=8,
+                        symbolBrush=color,
+                        symbolPen=color
+                    )
+                    
+                    # Add value labels next to each point
+                    for i, (x_val, y_val) in enumerate(zip(x, y_values)):
+                        if y_val > 0:
+                            text = pg.TextItem(
+                                text=str(int(y_val)),
+                                color=color,
+                                anchor=(0, 1)
+                            )
+                            self.plot_widget.addItem(text)
+                            x_offset = (x[-1] - x[0]) * 0.001
+                            text.setPos(x_val + x_offset, y_val)
+        
+        # Update y-axis label based on unit
+        y_label = f'Total {"Test" if unit == "Test Number" else "Job"} Numbers'
+        self.plot_widget.setLabel('left', y_label)
+        
+        # Fix for x-axis label
+        plot_item = self.plot_widget.getPlotItem()
+        bottom_axis = plot_item.getAxis('bottom')
+        bottom_axis.enableAutoSIPrefix(False)  # Disable SI prefix notation
+        bottom_axis.setLabel('Date')  # Set label without any units
+        
+        # Set x-axis range
+        self.plot_widget.getPlotItem().setXRange(
+            min(x) - (x[-1] - x[0]) * 0.05,
+            max(x) + (x[-1] - x[0]) * 0.05
+        )
+        
+        # Set x-axis ticks
+        bottom_axis.setTicks([[(timestamp, pd.Timestamp(timestamp, unit='s').strftime('%a %Y-%m-%d')) 
+                            for timestamp in x]])
+        
+        y_axis = self.plot_widget.getAxis('left')
+        if y_max <= 20:
+            step = 1
+        elif y_max <= 50:
+            step = 5
+        elif y_max <= 100:
+            step = 10
+        else:
+            step = 20
+        
+        y_ticks = [(i, str(i)) for i in range(0, y_max + 1, step)]
+        y_axis.setTicks([y_ticks])
+        
+        self.plot_widget.setBackground('black')
+        
+        # Get the latest date from the entire dataset, not just the selected range
+        latest_date = data['df']['created_date'].max().date()
+        
+        # Get current location filter
+        location = self.location_filter.currentText()
+        locations = [location] if location != 'All' else None
+        
+        # Filter DataFrame for all data up to the latest date
+        filtered_df = data['df'][
+            (data['df']['created_date'].dt.date <= latest_date) &
+            (data['df']['stage'].isin(['Open', 'Sample Preparation', 'Testing', 'Report']))
+        ]
+        
+        # Apply location filter if specified
+        if locations:
+            filtered_df = filtered_df[filtered_df['location'].isin(locations)]
+        
+        # Calculate job number total (cumulative)
+        job_total = len(filtered_df)
+        
+        # Calculate test number total (cumulative)
+        test_total = sum(
+            self.data_processor.extract_test_number(job_number) 
+            for job_number in filtered_df['job_number']
+        )
+        
+        # Create text items for the totals
+        total_text = pg.TextItem(
+            html=(
+                f'<div style="color: white; background-color: rgba(0, 0, 0, 0.7); padding: 5px;">'
+                f'Today\'s Total Job Number: <b>{job_total}</b><br>'
+                f'Today\'s Total Test Number: <b>{test_total}</b>'
+                f'</div>'
+            ),
+            anchor=(1, 0)  # Anchor to top-right
+        )
+        
+        self.plot_widget.addItem(total_text)
+        
+        # Position the text in the top-right corner with some padding
+        view_box = self.plot_widget.getViewBox()
+        view_range = view_box.viewRange()
+        x_max = view_range[0][1]
+        y_max = view_range[1][1]
+        total_text.setPos(x_max, y_max)
 
     def get_test_number_total(self, df, date):
         """Calculate total test numbers for a specific date."""
