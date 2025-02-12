@@ -189,13 +189,17 @@ class MainWindow(QMainWindow):
         start_date = self.start_date.date().toString("yyyy-MM-dd")
         end_date = self.end_date.date().toString("yyyy-MM-dd")
         
+        # Pass force_refresh=True only when refresh button is clicked
+        force_refresh = (self.sender() == self.refresh_button)
+        
         data = self.data_processor.get_data(
             "MTEST", 
             start_date, 
             end_date, 
             stages, 
             locations,
-            unit
+            unit,
+            force_refresh=force_refresh
         )
         self.update_plot(data, 'Cumulative', unit)
 

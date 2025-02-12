@@ -34,6 +34,10 @@ class JiraDataProcessor:
         self.NUM_IN_PARENS_PATTERN = re.compile(r'\((\d+)\)')
         self.NUMBER_PATTERN = re.compile(r'\d+')
 
+        self._cached_issues = None
+        self._last_fetch_time = None
+        self.CACHE_DURATION = timedelta(minutes=3)
+
     def fetch_issues(self, jql_query: str) -> List[Dict]:
         """Fetch issues from Jira API."""
         if not self.JIRA_URL:
@@ -310,13 +314,30 @@ class JiraDataProcessor:
 
     def get_data(self, project_key: str, start_date: str = None, end_date: str = None, 
                  stages: List[str] = None, locations: List[str] = None, 
-                 unit: str = 'Job Number') -> Dict:
-
-        print(f"Fetching data for project {project_key}")
+                 unit: str = 'Job Number', force_refresh: bool = False) -> Dict:
+        """
+        Get data with caching. force_refresh=True will bypass cache.
+        """
+        current_time = datetime.now()
         
-        jql_query = f'project = {project_key} ORDER BY created DESC'
-        issues = self.fetch_issues(jql_query)
-        df = self.process_issues(issues)
+        # Fetch new data if:
+        # 1. Cache is empty OR
+        # 2. Cache has expired OR
+        # 3. Force refresh requested
+        if (self._cached_issues is None or 
+            self._last_fetch_time is None or
+            current_time - self._last_fetch_time > self.CACHE_DURATION or
+            force_refresh):
+            
+            print(f"Fetching fresh data for project {project_key}")
+            jql_query = f'project = {project_key} ORDER BY created DESC'
+            self._cached_issues = self.fetch_issues(jql_query)
+            self._last_fetch_time = current_time
+        else:
+            print("Using cached data")
+        
+        # Use cached data for processing
+        df = self.process_issues(self._cached_issues)
         
         # Filter by location if specified
         if locations:
