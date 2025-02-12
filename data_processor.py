@@ -27,6 +27,12 @@ class JiraDataProcessor:
             
         self.rate_limiter = RateLimiter()
         self.debugged_issues = set()
+        
+        # Pre-compile regex patterns for better performance
+        self.PARENS_PATTERN = re.compile(r'\(([^)]+)\)')
+        self.ARROW_NUM_PATTERN = re.compile(r'-->[^(]*\((\d+)\)')
+        self.NUM_IN_PARENS_PATTERN = re.compile(r'\((\d+)\)')
+        self.NUMBER_PATTERN = re.compile(r'\d+')
 
     def fetch_issues(self, jql_query: str) -> List[Dict]:
         """Fetch issues from Jira API."""
@@ -332,8 +338,8 @@ class JiraDataProcessor:
     def extract_test_number(self, job_number: str) -> int:
         """Extract test number from job number string."""
         try:
-            # Find all text within parentheses
-            numbers = re.findall(r'\(([^)]+)\)', job_number)
+            # Find all text within parentheses using cached pattern
+            numbers = self.PARENS_PATTERN.findall(job_number)
             
             if not numbers:
                 return 0
@@ -348,33 +354,26 @@ class JiraDataProcessor:
 
             # Handle arrow notation
             if '-->' in job_number:
-                # Try to get both numbers
-                first_num = re.search(r'\((\d+)\)', job_number)
-                last_num = re.search(r'-->[^(]*\((\d+)\)', job_number)
+                last_num = self.ARROW_NUM_PATTERN.search(job_number)
+                if last_num:
+                    return int(last_num.group(1))
                 
-                # If we have both valid numbers, use the last one
-                if first_num and last_num:
-                    try:
-                        return int(last_num.group(1))
-                    except ValueError:
-                        return int(first_num.group(1))
-                # If only first number is valid, use it
-                elif first_num:
+                first_num = self.NUM_IN_PARENS_PATTERN.search(job_number)
+                if first_num:
                     return int(first_num.group(1))
                 return 0
                 
             # Handle other formats
             if '-' in numbers[0]:  # Format: (9-3) or (41-11 = 30)
-                # Extract first two numbers before any equals sign
-                nums = re.findall(r'\d+', numbers[0].split('=')[0])
+                nums = self.NUMBER_PATTERN.findall(numbers[0].split('=')[0])
                 if len(nums) >= 2:
                     a, b = map(int, nums[:2])
                     return abs(a - b)
             elif '+' in numbers[0]:  # Format: (3+3)
-                return sum(map(int, numbers[0].split('+')))
+                nums = self.NUMBER_PATTERN.findall(numbers[0])
+                return sum(map(int, nums))
             else:
-                # Extract first number if multiple numbers exist
-                match = re.search(r'\d+', numbers[0])
+                match = self.NUMBER_PATTERN.search(numbers[0])
                 return int(match.group()) if match else 0
                 
         except Exception as e:
